@@ -1,0 +1,1444 @@
+<!DOCTYPE html>
+<html lang="ru">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>Stepan's Trial — подарок (исправлено v3)</title>
+    <style>
+      :root {
+        --bg: #071427;
+        --card: #0b1520;
+        --accent: #d9b44a;
+        --muted: #9fb0bf;
+        --hp: #ef3b3b;
+        --mana: #4aa3ff;
+      }
+      html,
+      body {
+        height: 100%;
+        margin: 0;
+        font-family: Inter, Segoe UI, Arial, sans-serif;
+        background: linear-gradient(180deg, #071427 0%, #041018 100%);
+        color: #e6eef6;
+        -webkit-font-smoothing: antialiased;
+      }
+      .wrap {
+        max-width: 1000px;
+        margin: 22px auto;
+        padding: 18px;
+      }
+      header {
+        display: flex;
+        gap: 14px;
+        align-items: center;
+      }
+      .logo {
+        width: 78px;
+        height: 78px;
+        border-radius: 14px;
+        background: linear-gradient(135deg, var(--accent), #e36d6d);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-weight: 800;
+        color: #071427;
+        font-size: 22px;
+        box-shadow: 0 10px 30px rgba(0, 0, 0, 0.6);
+      }
+      h1 {
+        margin: 0;
+        font-size: 22px;
+      }
+      .lead {
+        color: var(--muted);
+        margin-top: 6px;
+        font-size: 14px;
+      }
+      .card {
+        background: rgba(255, 255, 255, 0.03);
+        padding: 16px;
+        border-radius: 12px;
+        margin-top: 16px;
+        box-shadow: 0 8px 30px rgba(0, 0, 0, 0.6);
+      }
+      .row {
+        display: flex;
+        gap: 12px;
+        align-items: center;
+      }
+      .btn {
+        background: var(--accent);
+        border: none;
+        padding: 10px 14px;
+        border-radius: 10px;
+        color: #081220;
+        font-weight: 800;
+        cursor: pointer;
+        box-shadow: 0 6px 18px rgba(0, 0, 0, 0.5);
+      }
+      .btn.secondary {
+        background: transparent;
+        border: 1px solid rgba(255, 255, 255, 0.06);
+        color: var(--muted);
+        font-weight: 700;
+      }
+      .muted {
+        color: var(--muted);
+        font-size: 13px;
+      }
+      .modal {
+        position: fixed;
+        inset: 0;
+        display: none;
+        align-items: center;
+        justify-content: center;
+        background: rgba(2, 6, 10, 0.85);
+        z-index: 70;
+      }
+      .modal.show {
+        display: flex;
+      }
+      .modal img {
+        max-width: 94vw;
+        max-height: 92vh;
+        border-radius: 8px;
+        box-shadow: 0 18px 80px rgba(0, 0, 0, 0.7);
+      }
+      .modal .close {
+        position: absolute;
+        top: 18px;
+        right: 18px;
+        background: rgba(255, 255, 255, 0.06);
+        border-radius: 8px;
+        padding: 8px;
+        color: #e6eef6;
+        cursor: pointer;
+      }
+      #gameWrap {
+        margin-top: 14px;
+        display: flex;
+        gap: 12px;
+        align-items: flex-start;
+      }
+      canvas {
+        background: transparent;
+        border-radius: 12px;
+        box-shadow: 0 10px 40px rgba(0, 0, 0, 0.6);
+        display: block;
+      }
+      #sidebar {
+        width: 260px;
+      }
+      .hud {
+        background: rgba(255, 255, 255, 0.02);
+        padding: 10px;
+        border-radius: 10px;
+        font-size: 14px;
+        color: var(--muted);
+      }
+      .bar {
+        height: 12px;
+        background: rgba(255, 255, 255, 0.04);
+        border-radius: 8px;
+        overflow: hidden;
+        margin-top: 8px;
+      }
+      .center {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+      }
+      .overlay {
+        position: absolute;
+        inset: 0;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        z-index: 80;
+      }
+      .dialog {
+        background: linear-gradient(180deg, #071422, #081522);
+        padding: 20px;
+        border-radius: 12px;
+        max-width: 720px;
+        color: #dbe9ff;
+        border: 1px solid rgba(255, 255, 255, 0.03);
+      }
+      .dialog h3 {
+        margin: 0 0 8px 0;
+      }
+      .choices {
+        display: flex;
+        gap: 8px;
+        margin-top: 10px;
+        flex-wrap: wrap;
+      }
+      .choice {
+        background: rgba(255, 255, 255, 0.03);
+        padding: 8px 12px;
+        border-radius: 8px;
+        cursor: pointer;
+        border: 1px solid rgba(255, 255, 255, 0.03);
+      }
+      .goyda {
+        position: absolute;
+        left: 50%;
+        top: 20%;
+        transform: translateX(-50%);
+        font-size: 64px;
+        font-weight: 900;
+        color: #ffd76b;
+        text-shadow: 0 6px 24px rgba(0, 0, 0, 0.6);
+        pointer-events: none;
+        z-index: 95;
+        opacity: 0;
+        transition: opacity 0.18s, transform 0.2s;
+      }
+      .goyda.show {
+        opacity: 1;
+        transform: translateX(-50%) scale(1.06);
+      }
+      footer {
+        margin-top: 18px;
+        color: var(--muted);
+        font-size: 13px;
+        text-align: center;
+      }
+      @media (max-width: 980px) {
+        .wrap {
+          padding: 12px;
+        }
+        #gameWrap {
+          flex-direction: column;
+        }
+        #sidebar {
+          width: 100%;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="wrap">
+      <header>
+        <div class="logo">S21</div>
+        <div>
+          <h1>Достойный Испытание — Путь Степана</h1>
+          <div class="lead">
+            Открой дверь — и начнётся церемония. Это не просто игра. Это —
+            вызов, дань уважения лысины и торжество вкуса.
+          </div>
+        </div>
+      </header>
+
+      <div class="card" id="introCard">
+        <div id="introText" style="white-space: pre-wrap"></div>
+        <div style="margin-top: 12px" class="row">
+          <button class="btn" id="showEggBtn">Показать яйцо</button>
+          <button class="btn" id="playBtnTop">Играть</button>
+          <button class="btn secondary" id="downloadBtn">Скачать (zip)</button>
+        </div>
+        <div style="margin-top: 10px" class="muted">
+          Кнопка «Показать яйцо» — шутка. Никаких нарушений. Просто нажми и
+          посмотри.
+        </div>
+      </div>
+
+      <div id="gameWrap">
+        <canvas id="game" width="800" height="520"></canvas>
+        <div id="sidebar">
+          <div class="hud card">
+            <div style="font-weight: 700">Степан — герой</div>
+            <div style="margin-top: 8px">HP</div>
+            <div class="bar">
+              <i
+                id="hpBar"
+                style="
+                  width: 100%;
+                  background: var(--hp);
+                  display: block;
+                  height: 100%;
+                "
+              ></i>
+            </div>
+            <div style="margin-top: 8px">Mana</div>
+            <div class="bar">
+              <i
+                id="manaBar"
+                style="
+                  width: 100%;
+                  background: var(--mana);
+                  display: block;
+                  height: 100%;
+                "
+              ></i>
+            </div>
+            <div style="margin-top: 10px" class="muted">
+              Управление: WASD/стрелки — движение, пробел — удар, E — ГООООЙДА
+              (супер).
+            </div>
+            <div style="margin-top: 12px">
+              <strong id="scoreText">Очки: 0</strong>
+            </div>
+            <div style="margin-top: 8px" class="muted" id="levelText">
+              Уровень: 0 / 3
+            </div>
+            <div style="margin-top: 12px" class="center">
+              <button class="btn" id="startBtn">Старт</button>
+            </div>
+          </div>
+
+          <div style="height: 12px"></div>
+
+          <div class="card hud" id="flavorCard">
+            <div style="font-weight: 700">Небольшие свершения</div>
+            <div class="muted" style="margin-top: 8px" id="flavorText">
+              Степан — любит сало, Камчатку, Доту и показывать яйца. Покажи свою
+              лысь — и мир прогнётся.
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <footer>
+        Готово — заменяй картинки в папке <code>assets/</code> и тексты в
+        объекте <code>TEXTS</code>.
+      </footer>
+    </div>
+
+    <div class="modal" id="eggModal">
+      <div class="close" id="eggClose">✕</div>
+      <img id="eggImg" src="assets/egg_full.png" alt="egg" />
+    </div>
+
+    <div id="overlayRoot" class="overlay" style="display: none"></div>
+    <div id="goydaText" class="goyda">ГООООЙДА</div>
+
+    <script>
+      /* =============================
+   CONFIG (тексты / пути / баланс)
+   Меняй тут: TEXTS, ASSETS, BALANCE
+   ============================= */
+      const TEXTS = {
+        introLong: `Воистину, в день сей мир заметит свет — сияние лысой главы великого Степана. 
+Сегодня ты не просто отмечаешь двадцать первый год — сегодня начинается эпопея.
+
+Степа, с ДР! Но это лишь прелюдия. Чтобы получить свой дар, предстоит пройти обряд:
+озарить мир сверканием своей лысины, победить свирепое Сало, показать яйца в знак мужества и, выкрикнув "ГООООЙДА", пройти через Рыбную Ленту.
+
+Твоя лыська — это факел; твоя смелость — щит. Приготовься: испытание ждёт. И помни — всё это ради шутки, дружбы и сала.`,
+        gotoExitText:
+          "Все враги повержены! Теперь доберись до выхода (жёлтая метка) и воззови к лыске.",
+        victoryTitle: "Победа!",
+        victoryText:
+          "Степан, ты прошёл все испытания. Возьми свой подарок — он заслужен.",
+        gameOverTitle: "Поражение",
+        gameOverText:
+          "Не печалься — попробуй снова, и пусть лысины свет вновь ведёт тебя.",
+      };
+
+      const ASSETS = {
+        player: "assets/player.png",
+        enemy1: "assets/enemy1.png",
+        boss: "assets/enemy_boss.png",
+        heart: "assets/heart.png",
+        mana: "assets/mana.png",
+        egg: "assets/egg_full.png",
+      };
+
+      const BALANCE = {
+        playerMaxHP: 100,
+        playerMaxMana: 100,
+        baseDamage: 20,
+        superCost: 40,
+        superDamage: 120,
+        heartHeal: 25,
+        manaRestore: 40,
+      };
+
+      /* =============================
+   BASICS
+   ============================= */
+      const canvas = document.getElementById("game");
+      const ctx = canvas.getContext("2d");
+      const W = canvas.width,
+        H = canvas.height;
+      document.getElementById("introText").textContent = TEXTS.introLong;
+      document.getElementById("showEggBtn").addEventListener("click", () => {
+        showEggModal();
+      });
+      document.getElementById("eggClose").addEventListener("click", () => {
+        hideEggModal();
+      });
+      document.getElementById("playBtnTop").addEventListener("click", () => {
+        startGame();
+      });
+      document.getElementById("startBtn").addEventListener("click", () => {
+        startGame();
+      });
+      document.getElementById("downloadBtn").addEventListener("click", () => {
+        alert(
+          "Собери папку: index.html + assets/ и запакуй; напиши если нужен скрипт."
+        );
+      });
+      function showEggModal() {
+        const m = document.getElementById("eggModal");
+        document.getElementById("eggImg").src = ASSETS.egg;
+        m.classList.add("show");
+      }
+      function hideEggModal() {
+        document.getElementById("eggModal").classList.remove("show");
+      }
+
+      /* =============================
+   IMAGE LOADER
+   ============================= */
+      const IMAGES = {};
+      function loadImages(list, callback) {
+        const keys = Object.keys(list);
+        let loaded = 0;
+        if (keys.length === 0) {
+          callback();
+          return;
+        }
+        keys.forEach((k) => {
+          const img = new Image();
+          img.src = list[k];
+          img.onload = () => {
+            IMAGES[k] = img;
+            if (++loaded === keys.length) callback();
+          };
+          img.onerror = () => {
+            IMAGES[k] = null;
+            if (++loaded === keys.length) callback();
+          };
+        });
+      }
+
+      /* =============================
+   HELPERS (всё здесь)
+   ============================= */
+      const TILE = 40;
+      function mapToPx(mx, my) {
+        return { x: mx * TILE + TILE / 2, y: my * TILE + TILE / 2 };
+      }
+      function normalizeAngle(a) {
+        while (a > Math.PI) a -= Math.PI * 2;
+        while (a < -Math.PI) a += Math.PI * 2;
+        return a;
+      }
+      function dist(a, b) {
+        if (!a || !b) return 1e6;
+        return Math.hypot(a.x - b.x, a.y - b.y);
+      }
+
+      /* find nearest floor tile around (used to rescue stuck entities) */
+      function findNearestFloorPx(mapData, x, y, maxRadius = 6) {
+        const startMx = Math.floor(x / TILE),
+          startMy = Math.floor(y / TILE);
+        for (let r = 0; r <= maxRadius; r++) {
+          for (let dy = -r; dy <= r; dy++) {
+            for (let dx = -r; dx <= r; dx++) {
+              const mx = startMx + dx,
+                my = startMy + dy;
+              if (
+                my < 0 ||
+                my >= mapData.raw.length ||
+                mx < 0 ||
+                mx >= mapData.raw[0].length
+              )
+                continue;
+              if (mapData.raw[my][mx] === "." || mapData.raw[my][mx] === " ") {
+                return mapToPx(mx, my);
+              }
+            }
+          }
+        }
+        return null;
+      }
+
+      /* =============================
+   MAPS
+   ============================= */
+      const MAPS = [
+        [
+          "############################",
+          "#......#......##.....#....#",
+          "#.####.#.####.##.##..#..#.#",
+          "#.#.....#....#....#..#..#.#",
+          "#.#.#####.##.######.##..#.#",
+          "#.#.....#..#..........#..#",
+          "#.#####.##.##########.#..#",
+          "#.....#.....#......#..#..#",
+          "###.#.#####.#.##.#.#..#..#",
+          "#...#.....#...#..#......##",
+          "#.#########.#.#######.##.#",
+          "#...........#.........#..#",
+          "############################",
+        ],
+        [
+          "############################",
+          "#......#.....#.....#......#",
+          "#.####.#.###.#.###.#.####.#",
+          "#.#....#...#.#...#.#....#.#",
+          "#.#.######.#.###.#.####.#.#",
+          "#.#......#.#.....#......#.#",
+          "#.######.#.#####.######.#.#",
+          "#......#.#.......#......#.#",
+          "####.#.#.#######.#.##.#.#.#",
+          "#....#...#.....#...#..#...#",
+          "#.#########.###.#####.####",
+          "#...........#.........#..#",
+          "############################",
+        ],
+        [
+          "############################",
+          "#..........#.............#.",
+          "#.######.#.####.######.#.#.",
+          "#.#....#.#....#.#....#.#.#.",
+          "#.#.##.#.##.##.#.##.#.#.#.#",
+          "#.#..#.#......#.#..#.#...#.",
+          "#.##.#.########.#.##.###.#.",
+          "#....#....#.....#.......#.#",
+          "###.####.#.#####.#####.#.##",
+          "#......#.#.....#.......#..#",
+          "#.####.#.#####.#######.##.#",
+          "#......#.........#.......#",
+          "############################",
+        ],
+      ];
+
+      /* =============================
+   GAME STATE
+   ============================= */
+      // DEBUG: включить визуальную подсветку и подробный лог в консоль
+      let DEBUG_SHOW_TILES_AROUND_EXIT = true; // можно временно выключить (false)
+      let DEBUG_VERBOSE = true; // больше логов
+
+      let state = "idle";
+      let prevState = null;
+      let currentLevel = 0;
+      let score = 0;
+      let mapData = null;
+      let enemies = [];
+      let items = [];
+      let lastTime = 0;
+      let attackCooldown = 0,
+        superCooldown = 0,
+        flashSuper = 0;
+      let exitPulse = 0; // для пульсации маркера выхода
+      // камера (для сдвига отрисовки; только для рендера)
+      let camX = 0;
+      let camY = 0;
+
+      /* player */
+      let player = {
+        x: 80,
+        y: H / 2,
+        r: 20,
+        hp: BALANCE.playerMaxHP,
+        mana: BALANCE.playerMaxMana,
+        damage: BALANCE.baseDamage,
+        speed: 160,
+        facing: 0,
+      };
+
+      /* =============================
+   COLLISIONS & MOVEMENT
+   ============================= */
+      // Заменить старую isWallAtPx на эту версию.
+      // Разрешает проход (возвращает false), если точка лежит рядом с маркером выхода.
+      // Это устраняет "невидимую стену" перед выходом, не ломая общую логику коллизий.
+
+      // ===== Reachability helpers (BFS on tile grid) =====
+      function isTileWalkable(mx, my) {
+        if (!mapData || !mapData.raw) return false;
+        if (
+          my < 0 ||
+          my >= mapData.raw.length ||
+          mx < 0 ||
+          mx >= mapData.raw[0].length
+        )
+          return false;
+        return mapData.raw[my][mx] !== "#";
+      }
+
+      function findPathBFS(startMx, startMy, targetMx, targetMy) {
+        // returns array of [mx,my] from start to target or null if no path
+        if (!mapData || !mapData.raw) return null;
+        const h = mapData.raw.length,
+          w = mapData.raw[0].length;
+        const q = [];
+        const seen = new Array(h).fill(0).map(() => new Array(w).fill(false));
+        const parent = new Array(h).fill(0).map(() => new Array(w).fill(null));
+        q.push([startMx, startMy]);
+        seen[startMy][startMx] = true;
+        const dirs = [
+          [1, 0],
+          [-1, 0],
+          [0, 1],
+          [0, -1],
+        ];
+        while (q.length) {
+          const [mx, my] = q.shift();
+          if (mx === targetMx && my === targetMy) {
+            // build path
+            const path = [];
+            let cur = [mx, my];
+            while (cur) {
+              path.push(cur);
+              cur = parent[cur[1]][cur[0]];
+            }
+            return path.reverse();
+          }
+          for (const d of dirs) {
+            const nx = mx + d[0],
+              ny = my + d[1];
+            if (nx < 0 || nx >= w || ny < 0 || ny >= h) continue;
+            if (seen[ny][nx]) continue;
+            if (!isTileWalkable(nx, ny)) continue;
+            seen[ny][nx] = true;
+            parent[ny][nx] = [mx, my];
+            q.push([nx, ny]);
+          }
+        }
+        return null;
+      }
+
+      // Найти ближайшую плитку рядом с exit, которая достижима из игрока
+      function adjustExitToReachable() {
+        if (!mapData || !mapData.exit) return;
+        const startMx = Math.floor(player.x / TILE),
+          startMy = Math.floor(player.y / TILE);
+        const exitMx = Math.floor(mapData.exit.x / TILE),
+          exitMy = Math.floor(mapData.exit.y / TILE);
+
+        // если сама цель достижима — ничего не делаем
+        const path = findPathBFS(startMx, startMy, exitMx, exitMy);
+        if (path) {
+          console.log(
+            "[adjustExitToReachable] exit is reachable, path length =",
+            path.length
+          );
+          return; // ok
+        }
+
+        console.warn(
+          "[adjustExitToReachable] exit NOT reachable; searching nearest reachable tile near exit"
+        );
+
+        // Поиск ближайшей проходной плитки в радиусе R от exit, сортируя по эвклидовой дистанции к exit
+        const R = 6; // радиус в тайлах — подкорректируй при необходимости
+        const candidates = [];
+        for (let dy = -R; dy <= R; dy++) {
+          for (let dx = -R; dx <= R; dx++) {
+            const mx = exitMx + dx,
+              my = exitMy + dy;
+            if (
+              mx < 0 ||
+              my < 0 ||
+              my >= mapData.raw.length ||
+              mx >= mapData.raw[0].length
+            )
+              continue;
+            if (!isTileWalkable(mx, my)) continue;
+            // проверяем достижимость от игрока
+            const p = findPathBFS(startMx, startMy, mx, my);
+            if (p) {
+              const distToExit = Math.hypot(dx, dy);
+              candidates.push({ mx, my, pathLen: p.length, distToExit });
+            }
+          }
+        }
+
+        if (candidates.length === 0) {
+          console.error(
+            "[adjustExitToReachable] no reachable candidate tiles near exit — leave exit as is"
+          );
+          return;
+        }
+
+        // выберем лучший: минимальный pathLen, затем близость к exit
+        candidates.sort((a, b) => {
+          if (a.pathLen !== b.pathLen) return a.pathLen - b.pathLen;
+          return a.distToExit - b.distToExit;
+        });
+
+        const best = candidates[0];
+        mapData.exit = mapToPx(best.mx, best.my);
+        console.log(
+          "[adjustExitToReachable] moved exit to reachable tile",
+          best.mx,
+          best.my,
+          "pathLen=",
+          best.pathLen
+        );
+      }
+
+      function isWallAtPx(x, y) {
+        const mx = Math.floor(x / TILE),
+          my = Math.floor(y / TILE);
+
+        // Если нет карты — считаем, что это стена
+        if (!mapData || !mapData.raw) return true;
+
+        // Вне карты — стена
+        if (
+          my < 0 ||
+          my >= mapData.raw.length ||
+          mx < 0 ||
+          mx >= mapData.raw[0].length
+        )
+          return true;
+
+        // Если эта клетка реально стена — обычно true
+        const isWall = mapData.raw[my][mx] === "#";
+
+        // Если это не стена — всё ок
+        if (!isWall) return false;
+
+        // --- НО: если стена находится в непосредственной близости к выходу, разрешаем проход ---
+        // это защищённый обход для случая "невидимой стены" непосредственно перед exit.
+        if (mapData && mapData.exit) {
+          const dx = x - mapData.exit.x;
+          const dy = y - mapData.exit.y;
+          const d = Math.hypot(dx, dy);
+          // tolerance — в пикселях; 1.5 * TILE означает ~полторы клетки вокруг выхода
+          const tolerance = TILE * 1.5;
+          if (d <= tolerance) {
+            // считаем, что в этой области стены можно пройти (возвращаем false)
+            // (это лишь локальное ослабление коллизии вокруг выхода)
+            return false;
+          }
+        }
+
+        // Обычное поведение: стена
+        return true;
+      }
+
+      function movePlayerBy(dx, dy) {
+        if (Math.abs(dx) > 0.001 || Math.abs(dy) > 0.001) {
+          player.facing = Math.atan2(dy, dx);
+        }
+        const nx = player.x + dx;
+        if (!isWallAtPx(nx, player.y)) player.x = nx;
+        else {
+          const tryX = player.x + Math.sign(dx) * 1;
+          if (!isWallAtPx(tryX, player.y)) player.x = tryX;
+        }
+        const ny = player.y + dy;
+        if (!isWallAtPx(player.x, ny)) player.y = ny;
+        else {
+          const tryY = player.y + Math.sign(dy) * 1;
+          if (!isWallAtPx(player.x, tryY)) player.y = tryY;
+        }
+        player.x = Math.max(10, Math.min(W - 10, player.x));
+        player.y = Math.max(10, Math.min(H - 10, player.y));
+      }
+      function moveEnemy(en, vx, vy, dt) {
+        const nx = en.x + vx * dt,
+          ny = en.y + vy * dt;
+        if (!isWallAtPx(nx, en.y)) en.x = nx;
+        else {
+          const nx2 = en.x + Math.sign(vx) * 1;
+          if (!isWallAtPx(nx2, en.y)) en.x = nx2;
+        }
+        if (!isWallAtPx(en.x, ny)) en.y = ny;
+        else {
+          const ny2 = en.y + Math.sign(vy) * 1;
+          if (!isWallAtPx(en.x, ny2)) en.y = ny2;
+        }
+        en.x = Math.max(10, Math.min(W - 10, en.x));
+        en.y = Math.max(10, Math.min(H - 10, en.y));
+      }
+      function ensureEntityNotInsideWall(en, dt) {
+        if (isWallAtPx(en.x, en.y)) {
+          en._stuckTimer = (en._stuckTimer || 0) + dt;
+          if (en._stuckTimer > 2.0) {
+            const p = findNearestFloorPx(mapData, en.x, en.y, 8);
+            if (p) {
+              en.x = p.x;
+              en.y = p.y;
+              en._stuckTimer = 0;
+            } else {
+              en._dead = true;
+            }
+          }
+        } else {
+          en._stuckTimer = 0;
+        }
+      }
+
+      /* =============================
+   SPAWN / BUILD LEVEL
+   ============================= */
+      function randomItem(raw) {
+        const h = raw.length,
+          w = raw[0].length;
+        for (let t = 0; t < 200; t++) {
+          const rx = Math.floor(Math.random() * w),
+            ry = Math.floor(Math.random() * h);
+          if (raw[ry][rx] === "." || raw[ry][rx] === " ") {
+            const pos = mapToPx(rx, ry);
+            return {
+              x: pos.x,
+              y: pos.y,
+              type: Math.random() < 0.5 ? "heart" : "mana",
+              r: 12,
+            };
+          }
+        }
+        return null;
+      }
+      function buildLevel(levelIndex) {
+        enemies = [];
+        items = [];
+        const raw = MAPS[levelIndex];
+        const h = raw.length,
+          w = raw[0].length;
+        mapData = { raw, w, h };
+        outer: for (let y = 1; y < h - 1; y++) {
+          for (let x = 1; x < w - 1; x++) {
+            if (raw[y][x] === "." || raw[y][x] === " ") {
+              const p = mapToPx(x, y);
+              player.x = p.x;
+              player.y = p.y;
+              break outer;
+            }
+          }
+        }
+        const enemyCount = [6, 9, 12][levelIndex] || 6;
+        for (let i = 0; i < enemyCount; i++) {
+          let tries = 0;
+          while (tries < 400) {
+            tries++;
+            const rx = Math.floor(Math.random() * w),
+              ry = Math.floor(Math.random() * h);
+            if (raw[ry][rx] === "." || raw[ry][rx] === " ") {
+              const pos = mapToPx(rx, ry);
+              if (Math.hypot(pos.x - player.x, pos.y - player.y) < 140)
+                continue;
+              enemies.push({
+                x: pos.x,
+                y: pos.y,
+                r: 18 + Math.random() * 8,
+                hp: 30 + levelIndex * 18 + Math.floor(Math.random() * 30),
+                speed: 40 + levelIndex * 10 + Math.random() * 30,
+                type:
+                  levelIndex === 2 && Math.random() < 0.15 ? "boss" : "grunt",
+                _hitCooldown: 0,
+                _stuckTimer: 0,
+              });
+              break;
+            }
+          }
+        }
+        for (let i = 0; i < 4; i++) items.push(randomItem(raw));
+        let exit = null;
+        for (let y = h - 2; y > 0; y--) {
+          for (let x = w - 2; x > 0; x--) {
+            if (raw[y][x] === "." || raw[y][x] === " ") {
+              exit = mapToPx(x, y);
+              break;
+            }
+          }
+          if (exit) break;
+        }
+        mapData.exit = exit;
+        return mapData;
+      }
+
+      /* =============================
+   INPUT
+   ============================= */
+      const keys = {};
+      window.addEventListener("keydown", (e) => {
+        const k = (e.key || "").toLowerCase();
+        keys[k] = true;
+        if (e.code === "Space") keys["space"] = true;
+        if (e.key === " ") keys["space"] = true;
+        if (e.key === "Escape") {
+          if (state === "dialog" || state === "upgrade") hideOverlay();
+        }
+      });
+      window.addEventListener("keyup", (e) => {
+        const k = (e.key || "").toLowerCase();
+        keys[k] = false;
+        if (e.code === "Space") keys["space"] = false;
+      });
+
+      /* =============================
+   AUDIO
+   ============================= */
+      let audioCtx = null;
+      function ensureAudio() {
+        if (!audioCtx)
+          audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+      }
+      function playBeep(freq, dur = 0.06, vol = 0.06) {
+        ensureAudio();
+        const o = audioCtx.createOscillator(),
+          g = audioCtx.createGain();
+        o.type = "sine";
+        o.frequency.value = freq;
+        g.gain.value = vol;
+        o.connect(g);
+        g.connect(audioCtx.destination);
+        o.start();
+        o.stop(audioCtx.currentTime + dur);
+      }
+      function playSuper() {
+        ensureAudio();
+        const t0 = audioCtx.currentTime;
+        const o1 = audioCtx.createOscillator(),
+          o2 = audioCtx.createOscillator();
+        const g = audioCtx.createGain();
+        o1.type = "sawtooth";
+        o2.type = "sine";
+        o1.frequency.value = 220;
+        o2.frequency.value = 330;
+        g.gain.value = 0.14;
+        o1.connect(g);
+        o2.connect(g);
+        g.connect(audioCtx.destination);
+        o1.start(t0);
+        o2.start(t0);
+        o1.frequency.exponentialRampToValueAtTime(60, t0 + 0.5);
+        o2.frequency.exponentialRampToValueAtTime(80, t0 + 0.5);
+        g.gain.exponentialRampToValueAtTime(0.001, t0 + 0.72);
+        o1.stop(t0 + 0.72);
+        o2.stop(t0 + 0.72);
+      }
+
+      /* =============================
+   COMBAT
+   ============================= */
+      function performMelee() {
+        playBeep(880, 0.06, 0.06);
+        enemies.forEach((en) => {
+          const dx = en.x - player.x,
+            dy = en.y - player.y;
+          const ang = Math.atan2(dy, dx);
+          const da = Math.abs(normalizeAngle(ang - player.facing));
+          if (
+            (da < 1.6 && dist(en, player) < player.r + 48) ||
+            dist(en, player) < player.r + 24
+          ) {
+            en.hp -= player.damage;
+            const kb = 8;
+            en.x += Math.cos(ang) * kb;
+            en.y += Math.sin(ang) * kb;
+          }
+        });
+      }
+      function performSuper() {
+        playSuper();
+        flashSuper = 1.0;
+        const goy = document.getElementById("goydaText");
+        goy.classList.add("show");
+        setTimeout(() => goy.classList.remove("show"), 700);
+        enemies.forEach((en) => {
+          const dx = en.x - player.x,
+            dy = en.y - player.y;
+          const d = Math.hypot(dx, dy);
+          if (d > 160) return;
+          const angleToEnemy = Math.atan2(dy, dx);
+          const da = Math.abs(normalizeAngle(angleToEnemy - player.facing));
+          if (da < 0.7) {
+            en.hp -= BALANCE.superDamage;
+            en._hitCooldown = 0.5;
+          }
+        });
+      }
+
+      /* =============================
+   UI OVERLAYS
+   ============================= */
+      const overlayRoot = document.getElementById("overlayRoot");
+      function showOverlay(html) {
+        // запомним текущее состояние, чтобы при закрытии вернуть его назад
+        prevState = state;
+        console.log("[showOverlay] prevState =", prevState);
+        overlayRoot.innerHTML = "";
+        const wrap = document.createElement("div");
+        wrap.className = "dialog";
+        wrap.innerHTML = html;
+        overlayRoot.style.display = "flex";
+        overlayRoot.appendChild(wrap);
+        state = "dialog";
+        console.log('[showOverlay] state set to "dialog"');
+      }
+
+      function hideOverlay() {
+        overlayRoot.style.display = "none";
+        overlayRoot.innerHTML = "";
+
+        // восстановим предыдущее состояние (если оно было)
+        if (prevState !== null) {
+          state = prevState;
+          prevState = null;
+        } else {
+          // на всякий случай поставим логически
+          state =
+            enemies.length === 0 && mapData && mapData.exit
+              ? "gotoExit"
+              : "playing";
+        }
+        console.log(
+          "[hideOverlay] restored state =",
+          state,
+          " (enemies=",
+          enemies.length,
+          ")"
+        );
+
+        // ВАЖНО: если мы вернулись в активное состояние — убедимся, что игровой цикл запущен
+        if (state === "playing" || state === "gotoExit") {
+          lastTime = performance.now(); // предотвратит большой dt на первом кадре
+          requestAnimationFrame(loop); // перезапустим цикл, если он остановился
+          console.log("[hideOverlay] requested animation frame to resume loop");
+        }
+      }
+
+      function showUpgradeOptions(onPick) {
+        const html = `<h3>Выбор награды</h3><div class="muted">Выбери один из трёх даров.</div>
+    <div class="choices" id="choiceBox">
+      <div class="choice" data-choice="hp">+20 к макс HP</div>
+      <div class="choice" data-choice="dmg">+6 к урону</div>
+      <div class="choice" data-choice="mana">+30 к мане</div>
+    </div>`;
+        showOverlay(html);
+        document.getElementById("choiceBox").addEventListener(
+          "click",
+          (e) => {
+            const c = e.target.closest(".choice");
+            if (!c) return;
+            const val = c.dataset.choice;
+            hideOverlay();
+            onPick(val);
+          },
+          { once: true }
+        );
+      }
+      function showEnemyDialog(levelIndex, onContinue) {
+        const taunts = [
+          "Ха! Ты думаешь, лысиною нас испугаешь?",
+          "Сало — тарелка, не враг. Но мы постоим!",
+          "Рыбная лента — лишь первая преграда на пути к ГОЙДЕ.",
+        ];
+        const html = `<h3>Противник:</h3><div class="muted">${
+          taunts[levelIndex] || "..."
+        }</div>
+    <div style="margin-top:12px" class="center"><button class="btn" id="contBtn">Продолжить</button></div>`;
+        showOverlay(html);
+        document.getElementById("contBtn").addEventListener(
+          "click",
+          () => {
+            hideOverlay();
+            onContinue();
+          },
+          { once: true }
+        );
+      }
+      function showEnd(title, text) {
+        const html = `<h3>${title}</h3><div class="muted" style="margin-top:6px">${text}</div>
+    <div style="margin-top:12px" class="choices">
+      <div class="choice" id="replay">Играть снова</div>
+      <div class="choice" id="claim">Забрать подарок</div>
+    </div>`;
+        showOverlay(html);
+        document.getElementById("replay").addEventListener(
+          "click",
+          () => {
+            hideOverlay();
+            startGame();
+          },
+          { once: true }
+        );
+        document.getElementById("claim").addEventListener(
+          "click",
+          () => {
+            hideOverlay();
+            alert("Поздравляю! Подари Степану его коробку 🎁");
+          },
+          { once: true }
+        );
+      }
+
+      /* =============================
+   GAME FLOW
+   ============================= */
+      function startGame() {
+        currentLevel = 0;
+        score = 0;
+        player.hp = BALANCE.playerMaxHP;
+        player.mana = BALANCE.playerMaxMana;
+        player.damage = BALANCE.baseDamage;
+        state = "playing";
+        loadImages(ASSETS, () => {
+          startLevel(currentLevel);
+          lastTime = performance.now();
+          requestAnimationFrame(loop);
+        });
+      }
+      function startLevel(idx) {
+        buildLevel(idx);
+        attackCooldown = 0;
+        superCooldown = 0;
+        flashSuper = 0;
+        let exitPulse = 0; // для пульсации маркера выхода
+        state = "playing";
+      }
+
+      /* =============================
+   MAIN LOOP
+   ============================= */
+      function loop(ts) {
+        const dt = Math.min(
+          0.05,
+          ((ts || performance.now()) - lastTime) / 1000
+        );
+        lastTime = ts || performance.now();
+        if (state === "playing" || state === "gotoExit") {
+          update(dt);
+          render();
+          updateHUD();
+        }
+        if (state === "playing" || state === "gotoExit")
+          requestAnimationFrame(loop);
+      }
+
+      /* =============================
+   UPDATE
+   ============================= */
+      function update(dt) {
+        let mx = 0,
+          my = 0;
+        if (keys["arrowup"] || keys["w"]) my -= 1;
+        if (keys["arrowdown"] || keys["s"]) my += 1;
+        if (keys["arrowleft"] || keys["a"]) mx -= 1;
+        if (keys["arrowright"] || keys["d"]) mx += 1;
+        const len = Math.hypot(mx, my) || 1;
+        movePlayerBy(
+          (mx / len) * player.speed * dt,
+          (my / len) * player.speed * dt
+        );
+
+        if ((keys[" "] || keys["space"]) && attackCooldown <= 0) {
+          performMelee();
+          attackCooldown = 0.28;
+        }
+        if (attackCooldown > 0) attackCooldown -= dt;
+
+        if (
+          (keys["e"] || keys["ё"]) &&
+          superCooldown <= 0 &&
+          player.mana >= BALANCE.superCost
+        ) {
+          performSuper();
+          player.mana -= BALANCE.superCost;
+          superCooldown = 1.6;
+        }
+        if (superCooldown > 0) superCooldown -= dt;
+
+        player.mana = Math.min(BALANCE.playerMaxMana, player.mana + 8 * dt);
+
+        enemies.forEach((en) => {
+          const dx = player.x - en.x,
+            dy = player.y - en.y;
+          const d = Math.hypot(dx, dy) || 1;
+          const vx = (dx / d) * en.speed,
+            vy = (dy / d) * en.speed;
+          moveEnemy(en, vx, vy, dt);
+          ensureEntityNotInsideWall(en, dt);
+          const minD = en.r + player.r - 6;
+          if (dist(en, player) < minD) {
+            if (!en._hitCooldown || en._hitCooldown <= 0) {
+              player.hp -= 8 + (en.type === "boss" ? 10 : 0);
+              en._hitCooldown = 0.8;
+              playBeep(220, 0.06, 0.06);
+            }
+          }
+          if (en._hitCooldown > 0) en._hitCooldown -= dt;
+          if (en.hp <= 0) en._dead = true;
+        });
+        enemies = enemies.filter((e) => !e._dead);
+
+        for (let i = items.length - 1; i >= 0; i--) {
+          const it = items[i];
+          if (dist(it, player) < player.r + it.r) {
+            if (it.type === "heart") {
+              player.hp = Math.min(
+                BALANCE.playerMaxHP,
+                player.hp + BALANCE.heartHeal
+              );
+            } else if (it.type === "mana") {
+              player.mana = Math.min(
+                BALANCE.playerMaxMana,
+                player.mana + BALANCE.manaRestore
+              );
+            }
+            items.splice(i, 1);
+            playBeep(720, 0.06, 0.06);
+          }
+        }
+        exitPulse += dt * 3.0; // регулируй скорость пульсации (3.0 — приятный темп)
+
+        if (enemies.length === 0 && state === "playing") {
+          console.log(
+            "[LEVEL CLEAR] enemies === 0, setting state -> gotoExit; mapData.exit=",
+            !!(mapData && mapData.exit)
+          );
+          state = "gotoExit";
+
+          // Показываем инструкцию
+          showOverlay(`<h3>Враг повержен</h3><div class="muted" style="margin-top:8px">${TEXTS.gotoExitText}</div>
+    <div style="margin-top:12px" class="center"><button class="btn" id="okContinue">Понятно</button></div>`);
+          // после state = 'gotoExit';
+          adjustExitToReachable();
+
+          // Надёжно повесим обработчик — элемент уже создан в showOverlay, но проверим существование
+          setTimeout(() => {
+            const okBtn = document.getElementById("okContinue");
+            if (okBtn) {
+              okBtn.addEventListener(
+                "click",
+                () => {
+                  console.log("[okContinue] clicked");
+                  hideOverlay();
+                },
+                { once: true }
+              );
+            } else {
+              console.warn(
+                "[okContinue] button not found in DOM after showOverlay"
+              );
+              // на всякий случай сразу восстановим состояние
+              hideOverlay();
+            }
+          }, 0);
+        }
+
+        if (state === "gotoExit" && mapData && mapData.exit) {
+          const ex = mapData.exit;
+          if (Math.hypot(player.x - ex.x, player.y - ex.y) < 26) {
+            state = "pending";
+            showEnemyDialog(currentLevel, () => {
+              showUpgradeOptions((choice) => {
+                if (choice === "hp") {
+                  BALANCE.playerMaxHP += 20;
+                  player.hp = Math.min(BALANCE.playerMaxHP, player.hp + 20);
+                }
+                if (choice === "dmg") {
+                  player.damage += 6;
+                }
+                if (choice === "mana") {
+                  BALANCE.playerMaxMana += 30;
+                  player.mana = Math.min(
+                    BALANCE.playerMaxMana,
+                    player.mana + 30
+                  );
+                }
+                currentLevel++;
+                if (currentLevel >= MAPS.length) {
+                  state = "victory";
+                  showEnd(TEXTS.victoryTitle, TEXTS.victoryText);
+                } else startLevel(currentLevel);
+              });
+            });
+          }
+        }
+
+        if (player.hp <= 0 && state !== "gameover") {
+          state = "gameover";
+          showEnd(TEXTS.gameOverTitle, TEXTS.gameOverText);
+        }
+      }
+
+      /* =============================
+   RENDER
+   ============================= */
+      function render() {
+        ctx.clearRect(0, 0, W, H);
+        // --- Camera: center on player and clamp to map bounds ---
+        if (mapData && mapData.w && mapData.h) {
+          const mapPixelW = mapData.w * TILE;
+          const mapPixelH = mapData.h * TILE;
+
+          // центрируем камеру на игроке
+          camX = Math.round(player.x - W / 2);
+          camY = Math.round(player.y - H / 2);
+
+          // ограничим, чтобы не показывать пустоту за краями карты
+          camX = Math.max(0, Math.min(camX, Math.max(0, mapPixelW - W)));
+          camY = Math.max(0, Math.min(camY, Math.max(0, mapPixelH - H)));
+        } else {
+          camX = 0;
+          camY = 0;
+        }
+        ctx.save();
+        ctx.translate(-camX, -camY);
+        if (mapData && mapData.raw) {
+          // shift drawing by camera
+
+          for (let y = 0; y < mapData.raw.length; y++) {
+            for (let x = 0; x < mapData.raw[y].length; x++) {
+              const ch = mapData.raw[y][x];
+              const px = x * TILE,
+                py = y * TILE;
+              if (ch === "#") {
+                ctx.fillStyle = "#071721";
+                ctx.fillRect(px, py, TILE, TILE);
+                ctx.fillStyle = "#082a2f";
+                ctx.fillRect(px + 6, py + 6, TILE - 12, TILE - 12);
+              } else {
+                ctx.fillStyle = "#071421";
+                ctx.fillRect(px, py, TILE, TILE);
+                ctx.fillStyle = "rgba(255,255,255,0.01)";
+                ctx.fillRect(px, py + TILE - 3, TILE, 1);
+              }
+            }
+          }
+          // draw pulsing exit marker (заменяет прежний прямоугольный маркер)
+          if (mapData && mapData.exit) {
+            const ex = mapData.exit;
+            // пульсация (значение ~1.0..1.12)
+            const pulse = 1 + 0.12 * Math.sin(exitPulse);
+
+            // внешнее свечение (пульсирующее)
+            ctx.save();
+            ctx.globalAlpha = 0.95;
+            ctx.fillStyle = "#ffd76b";
+            ctx.beginPath();
+            ctx.arc(ex.x, ex.y, 18 * pulse, 0, Math.PI * 2);
+            ctx.shadowColor = "rgba(255,215,107,0.9)";
+            ctx.shadowBlur = 20;
+            ctx.fill();
+            ctx.restore();
+
+            // внутренний яркий круг (основной маркер)
+            ctx.beginPath();
+            ctx.fillStyle = "#ffdb6b";
+            ctx.arc(ex.x, ex.y, 10, 0, Math.PI * 2);
+            ctx.fill();
+
+            // маленькая тёмная метка/штрих (визуальный контраст)
+            ctx.fillStyle = "#6b4512";
+            ctx.fillRect(ex.x - 3, ex.y - 3, 6, 6);
+
+            // подпись над маркером
+            ctx.fillStyle = "#fff7e0";
+            ctx.font = "13px Inter, sans-serif";
+            ctx.textAlign = "center";
+            // подпись слегка подпрыгивает вместе с пульсом
+            ctx.fillText("ВЫХОД", ex.x, ex.y - 20 - 4 * (pulse - 1));
+          }
+        }
+
+        items.forEach((it) => {
+          if (IMAGES.heart && it.type === "heart")
+            ctx.drawImage(IMAGES.heart, it.x - 16, it.y - 16, 32, 32);
+          else if (IMAGES.mana && it.type === "mana")
+            ctx.drawImage(IMAGES.mana, it.x - 16, it.y - 16, 32, 32);
+          else {
+            if (it.type === "heart") {
+              ctx.fillStyle = "#ff6b6b";
+              ctx.beginPath();
+              ctx.arc(it.x, it.y, 10, 0, Math.PI * 2);
+              ctx.fill();
+            } else {
+              ctx.fillStyle = "#4aa3ff";
+              ctx.fillRect(it.x - 10, it.y - 10, 20, 20);
+            }
+          }
+        });
+
+        enemies.forEach((en) => {
+          if (IMAGES.enemy1 && en.type === "grunt")
+            ctx.drawImage(IMAGES.enemy1, en.x - 24, en.y - 24, 48, 48);
+          else if (IMAGES.boss && en.type === "boss")
+            ctx.drawImage(IMAGES.boss, en.x - 36, en.y - 36, 72, 72);
+          else {
+            ctx.beginPath();
+            ctx.fillStyle = en.type === "boss" ? "#ff8b6b" : "#ff6b6b";
+            ctx.arc(en.x, en.y, en.r, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.fillStyle = "#581515";
+            ctx.fillRect(en.x - 6, en.y - 6, 12, 6);
+          }
+          ctx.fillStyle = "rgba(0,0,0,0.5)";
+          ctx.fillRect(en.x - 20, en.y - en.r - 12, 40, 6);
+          ctx.fillStyle = "#60d36b";
+          const denom = 60 + currentLevel * 40;
+          const w = (Math.max(0, en.hp) / denom) * 40;
+          ctx.fillRect(en.x - 20, en.y - en.r - 12, Math.max(0, w), 6);
+        });
+
+        if (IMAGES.player)
+          ctx.drawImage(IMAGES.player, player.x - 28, player.y - 28, 56, 56);
+        else {
+          ctx.beginPath();
+          ctx.fillStyle = "#ffd7a8";
+          ctx.arc(player.x, player.y, player.r, 0, Math.PI * 2);
+          ctx.fill();
+          ctx.beginPath();
+          ctx.fillStyle = "rgba(255,255,255,0.26)";
+          ctx.ellipse(player.x - 8, player.y - 10, 12, 7, -0.6, 0, Math.PI * 2);
+          ctx.fill();
+          ctx.fillStyle = "#d99b4b";
+          ctx.fillRect(player.x + 6, player.y + 8, 12, 6);
+        }
+
+        if (flashSuper > 0) {
+          ctx.save();
+          ctx.translate(player.x, player.y);
+          ctx.rotate(player.facing);
+          ctx.globalAlpha = Math.min(0.7, flashSuper);
+          ctx.fillStyle = "rgba(217,180,74,0.32)";
+          ctx.beginPath();
+          ctx.moveTo(0, 0);
+          ctx.arc(0, 0, 160, -0.7, 0.7);
+          ctx.closePath();
+          ctx.fill();
+          ctx.restore();
+          flashSuper = Math.max(0, flashSuper - 0.06);
+        }
+
+        ctx.fillStyle = "#dbe9ff";
+        ctx.font = "14px Inter, sans-serif";
+        ctx.fillText(
+          `HP: ${Math.max(0, Math.round(player.hp))} / ${BALANCE.playerMaxHP}`,
+          12,
+          18
+        );
+        ctx.fillText(
+          `Mana: ${Math.max(0, Math.round(player.mana))} / ${
+            BALANCE.playerMaxMana
+          }`,
+          12,
+          36
+        );
+        // restore canvas transform so HUD (screen-space) is not shifted
+        ctx.restore();
+      }
+
+      /* =============================
+   HUD UPDATE and initial
+   ============================= */
+      function updateHUD() {
+        const hpPerc = (Math.max(0, player.hp) / BALANCE.playerMaxHP) * 100;
+        const manaPerc =
+          (Math.max(0, player.mana) / BALANCE.playerMaxMana) * 100;
+        document.getElementById("hpBar").style.width = hpPerc + "%";
+        document.getElementById("manaBar").style.width = manaPerc + "%";
+        document.getElementById("scoreText").textContent = "Очки: " + score;
+        document.getElementById("levelText").textContent = `Уровень: ${
+          currentLevel + 1
+        } / 3`;
+      }
+      ctx.fillStyle = "#dbe9ff";
+      ctx.font = "18px Inter";
+      ctx.fillText('Нажми "Старт" чтобы начать испытание', W / 2 - 160, H / 2);
+      updateHUD();
+    </script>
+  </body>
+</html>
