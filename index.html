@@ -296,13 +296,37 @@
               лысь — и мир прогнётся.
             </div>
           </div>
+          <div class="card hud" id="audioControls" style="margin-top: 12px">
+            <div style="font-weight: 700">Звук и музыка</div>
+
+            <div style="margin-top: 8px" class="muted">
+              Эффекты <span id="effectsVal">90%</span>
+            </div>
+            <input
+              id="effectsVol"
+              type="range"
+              min="0"
+              max="1"
+              step="0.01"
+              value="0.9"
+            />
+
+            <div style="margin-top: 8px" class="muted">
+              Фоновая музыка <span id="musicVal">60%</span>
+            </div>
+            <input
+              id="musicVol"
+              type="range"
+              min="0"
+              max="1"
+              step="0.01"
+              value="0.6"
+            />
+          </div>
         </div>
       </div>
 
-      <footer>
-        Готово — заменяй картинки в папке <code>assets/</code> и тексты в
-        объекте <code>TEXTS</code>.
-      </footer>
+      <footer>Подвал с <code>детьми</code>.</footer>
     </div>
 
     <div class="modal" id="eggModal">
@@ -316,8 +340,73 @@
     <script>
       /* =============================
    CONFIG (тексты / пути / баланс)
-   Меняй тут: TEXTS, ASSETS, BALANCE
    ============================= */
+      const SOUND_LISTS = {
+        goyda: ["assets/sounds/goyda.mp3"],
+
+        // атаки — список вариантов, проигрывается случайный
+        attack: [
+          "assets/sounds/attack1.mp3",
+          "assets/sounds/attack2.mp3",
+          "assets/sounds/attack3.mp3",
+          "assets/sounds/attack4.mp3",
+          "assets/sounds/attack5.mp3",
+          "assets/sounds/attack6.mp3",
+          "assets/sounds/attack7.mp3",
+          "assets/sounds/attack8.mp3",
+          "assets/sounds/attack9.mp3",
+          "assets/sounds/attack10.mp3",
+          "assets/sounds/attack11.mp3",
+        ],
+
+        // звуки получения урона
+        hurt: [
+          "assets/sounds/hurt1.mp3",
+          "assets/sounds/hurt2.mp3",
+          "assets/sounds/hurt3.mp3",
+          "assets/sounds/hurt4.mp3",
+          "assets/sounds/hurt5.mp3",
+        ],
+      };
+      SOUND_LISTS.pickup_heart = [
+        "assets/sounds/pickup1.mp3",
+        "assets/sounds/pickup2.mp3",
+        "assets/sounds/pickup3.mp3",
+        "assets/sounds/pickup4.mp3",
+        // добавь свои варианты сердец сюда
+      ];
+
+      SOUND_LISTS.pickup_mana = [
+        "assets/sounds/mana1.mp3",
+        "assets/sounds/mana2.mp3",
+        "assets/sounds/mana3.mp3",
+        // добавь свои варианты маны сюда
+      ];
+      SOUND_LISTS.victory = ["assets/sounds/victory1.mp3"];
+      SOUND_LISTS.defeat = ["assets/sounds/defeat1.mp3"];
+      // --- музыка по уровням ---
+      const MUSIC_LIST = [
+        "assets/music/level1.mp3", // уровень 0
+        "assets/music/level2.mp3", // уровень 1
+        "assets/music/level3.mp3", // уровень 2
+      ];
+      // runtime-хранилище загруженных Audio объектов
+      const SOUNDS = {}; // ключ -> [HTMLAudio, HTMLAudio, ...]
+      // audio runtime settings
+      let effectsVolume = 0.9;
+      let musicVolume = 0.6;
+      let effectsMuted = false;
+      let musicMuted = false;
+
+      // music runtime
+      const MUSIC = []; // preloaded HTMLAudio objects for music
+      let currentMusic = null;
+
+      // --- attack sound single-instance + acceleration ---
+      let currentAttackAudio = null; // активный экземпляр attack звука
+      let attackAccelStep = 1.25; // во сколько раз ускоряется звук при повторном нажатии
+      let attackMaxRate = 2.2; // максимальный playbackRate
+      let attackBaseVolume = 0.9; // базовый volume для клона
       const TEXTS = {
         introLong: `Воистину, в день сей мир заметит свет — сияние лысой главы великого Степана. 
 Сегодня ты не просто отмечаешь двадцать первый год — сегодня начинается эпопея.
@@ -344,6 +433,43 @@
         mana: "assets/mana.png",
         egg: "assets/egg_full.png",
       };
+      // Перечень дополнительных картинок для каждого уровня (ключи — совпадают с тем, что мы рисуем в render)
+      const ASSETS_LEVEL = [
+        // level 0: пока пусто (использует ASSETS по-умолчанию)
+        {
+          floor: "assets/floor_level0.jpg",
+          wallVariants: [
+            "assets/wall0_a.jpg",
+            "assets/wall0_b.png",
+            "assets/wall0_c.png",
+          ],
+        },
+        // level 1: более злые враги (положи файлы в assets/)
+        {
+          enemy_lvl2: "assets/enemy_lvl2.png",
+          boss_lvl2: "assets/enemy_boss_lvl2.png",
+          player_lvl2: "assets/player_lvl2.png",
+          floor: "assets/floor_level1.png",
+          wallVariants: [
+            "assets/wall1_a.png",
+            "assets/wall1_b.png",
+            "assets/wall1_c.png",
+          ],
+        },
+        // level 2: ещё другие картинки
+        {
+          enemy_lvl3: "assets/enemy_lvl3.png",
+          boss_lvl3: "assets/enemy_boss_lvl3.png",
+          player_lvl3: "assets/player_lvl3.png",
+          floor: "assets/floor_level2.png",
+          wallVariants: [
+            "assets/wall2_a.png",
+            "assets/wall2_b.png",
+            "assets/wall2_c.png",
+            "assets/wall2_d.png",
+          ],
+        },
+      ];
 
       const BALANCE = {
         playerMaxHP: 100,
@@ -354,6 +480,33 @@
         heartHeal: 25,
         manaRestore: 40,
       };
+      // Конфиг уровней: для каждого уровня задаём базовый count, множители HP/Speed, и имена ассетов уровня
+      const LEVEL_CONFIG = [
+        // уровень 0 (текущий/лабиринт) — оставить примерно как было
+        {
+          enemyCount: 6,
+          hpMult: 1.0,
+          speedMult: 1.0,
+          enemyImage: "enemy1",
+          bossImage: "boss",
+        },
+        // уровень 1 (мы сделаем более сложным)
+        {
+          enemyCount: 10,
+          hpMult: 1.6,
+          speedMult: 1.35,
+          enemyImage: "enemy_lvl2",
+          bossImage: "boss_lvl2",
+        },
+        // уровень 2 (финал) — ещё горячее
+        {
+          enemyCount: 14,
+          hpMult: 2.0,
+          speedMult: 1.6,
+          enemyImage: "enemy_lvl3",
+          bossImage: "boss_lvl3",
+        },
+      ];
 
       /* =============================
    BASICS
@@ -371,10 +524,115 @@
       });
       document.getElementById("playBtnTop").addEventListener("click", () => {
         startGame();
+        // после startGame() выполните:
+        const startBtn = document.getElementById("startBtn");
+        if (startBtn) startBtn.blur();
+        const c = document.getElementById("game");
+        if (c) {
+          c.tabIndex = 0; // чтобы canvas мог получать фокус
+          try {
+            c.focus();
+          } catch (e) {
+            /* ignore */
+          }
+        }
       });
       document.getElementById("startBtn").addEventListener("click", () => {
         startGame();
+        // после startGame() выполните:
+        const startBtn = document.getElementById("startBtn");
+        if (startBtn) startBtn.blur();
+        const c = document.getElementById("game");
+        if (c) {
+          c.tabIndex = 0; // чтобы canvas мог получать фокус
+          try {
+            c.focus();
+          } catch (e) {
+            /* ignore */
+          }
+        }
       });
+      // -----------------------------
+      // Audio controls wiring — подключаем слушатели ОДИН РАЗ
+      // -----------------------------
+      function wireAudioControls() {
+        const effectsVolEl = document.getElementById("effectsVol");
+        const musicVolEl = document.getElementById("musicVol");
+        const effectsVal = document.getElementById("effectsVal");
+        const musicVal = document.getElementById("musicVal");
+
+        // начальные значения в UI
+        if (effectsVal)
+          effectsVal.textContent = Math.round(effectsVolume * 100) + "%";
+        if (musicVal)
+          musicVal.textContent = Math.round(musicVolume * 100) + "%";
+        if (effectsVolEl) effectsVolEl.value = effectsVolume;
+        if (musicVolEl) musicVolEl.value = musicVolume;
+
+        if (effectsVolEl) {
+          effectsVolEl.addEventListener("input", (e) => {
+            effectsVolume = parseFloat(e.target.value);
+            if (effectsVal)
+              effectsVal.textContent = Math.round(effectsVolume * 100) + "%";
+          });
+        }
+
+        if (musicVolEl) {
+          musicVolEl.addEventListener("input", (e) => {
+            musicVolume = parseFloat(e.target.value);
+            if (musicVal)
+              musicVal.textContent = Math.round(musicVolume * 100) + "%";
+            if (currentMusic && !musicMuted) currentMusic.volume = musicVolume;
+          });
+        }
+
+        // Создаём/подвязываем кнопки включения/выключения музыки/эффектов (если их нет)
+        let toggleEffectsBtn = document.getElementById("toggleEffects");
+        let toggleMusicBtn = document.getElementById("toggleMusic");
+
+        if (!toggleEffectsBtn) {
+          toggleEffectsBtn = document.createElement("button");
+          toggleEffectsBtn.id = "toggleEffects";
+          toggleEffectsBtn.className = "btn secondary";
+          toggleEffectsBtn.style.marginTop = "8px";
+          toggleEffectsBtn.textContent = effectsMuted
+            ? "Вкл. эффекты"
+            : "Откл. эффекты";
+          const ac = document.getElementById("audioControls");
+          if (ac) ac.appendChild(toggleEffectsBtn);
+        }
+        if (!toggleMusicBtn) {
+          toggleMusicBtn = document.createElement("button");
+          toggleMusicBtn.id = "toggleMusic";
+          toggleMusicBtn.className = "btn secondary";
+          toggleMusicBtn.style.marginTop = "8px";
+          toggleMusicBtn.textContent = musicMuted
+            ? "Вкл. музыку"
+            : "Откл. музыку";
+          const ac = document.getElementById("audioControls");
+          if (ac) ac.appendChild(toggleMusicBtn);
+        }
+
+        if (toggleEffectsBtn) {
+          toggleEffectsBtn.addEventListener("click", () => {
+            effectsMuted = !effectsMuted;
+            toggleEffectsBtn.textContent = effectsMuted
+              ? "Вкл. эффекты"
+              : "Откл. эффекты";
+          });
+        }
+        if (toggleMusicBtn) {
+          toggleMusicBtn.addEventListener("click", () => {
+            musicMuted = !musicMuted;
+            toggleMusicBtn.textContent = musicMuted
+              ? "Вкл. музыку"
+              : "Откл. музыку";
+            if (currentMusic)
+              currentMusic.volume = musicMuted ? 0 : musicVolume;
+          });
+        }
+      }
+
       document.getElementById("downloadBtn").addEventListener("click", () => {
         alert(
           "Собери папку: index.html + assets/ и запакуй; напиши если нужен скрипт."
@@ -393,6 +651,9 @@
    IMAGE LOADER
    ============================= */
       const IMAGES = {};
+      // временные ключи для текущего уровня: имена ключей wallVar0..wallVarN
+      let TEMP_WALL_KEYS = [];
+
       function loadImages(list, callback) {
         const keys = Object.keys(list);
         let loaded = 0;
@@ -412,6 +673,241 @@
             if (++loaded === keys.length) callback();
           };
         });
+      }
+      function loadSounds(list, callback) {
+        const keys = Object.keys(list);
+        if (keys.length === 0) {
+          callback();
+          return;
+        }
+        let loaded = 0;
+        keys.forEach((key) => {
+          let arr = list[key];
+          if (!Array.isArray(arr)) {
+            arr = [arr];
+          }
+
+          SOUNDS[key] = [];
+          let innerLoaded = 0;
+          if (arr.length === 0) {
+            loaded++;
+            if (loaded === keys.length) callback();
+            return;
+          }
+          arr.forEach((src) => {
+            const a = new Audio();
+            a.preload = "auto";
+            a.src = src;
+            // mark as can play when metadata or enough data loaded
+            a.addEventListener(
+              "canplaythrough",
+              () => {
+                // ничего не делаем кроме учета
+              },
+              { once: true }
+            );
+            // учитываем и для error — чтобы не зависнуть на 404
+            const finishOne = () => {
+              innerLoaded++;
+              SOUNDS[key].push(a);
+              if (innerLoaded === arr.length) {
+                loaded++;
+                if (loaded === keys.length) callback();
+              }
+            };
+            a.addEventListener("loadeddata", finishOne, { once: true });
+            a.addEventListener(
+              "error",
+              () => {
+                // если не загрузился — всё равно пушим объект (он будет null-checked при воспроизводстве)
+                console.warn("[loadSounds] failed to load", src);
+                innerLoaded++;
+                // не пушим нерабочий элемент
+                if (innerLoaded === arr.length) {
+                  loaded++;
+                  if (loaded === keys.length) callback();
+                }
+              },
+              { once: true }
+            );
+          });
+        });
+      }
+      function loadMusic(list, callback) {
+        MUSIC.length = 0;
+        if (!Array.isArray(list) || list.length === 0) {
+          callback();
+          return;
+        }
+        let loaded = 0;
+        list.forEach((src) => {
+          const a = new Audio();
+          a.preload = "auto";
+          a.loop = true;
+          a.src = src;
+          a.addEventListener(
+            "canplaythrough",
+            () => {
+              loaded++;
+              MUSIC.push(a);
+              if (loaded === list.length) callback();
+            },
+            { once: true }
+          );
+          a.addEventListener(
+            "error",
+            () => {
+              console.warn("[loadMusic] failed to load", src);
+              loaded++;
+              // не пушим нерабочий файл
+              if (loaded === list.length) callback();
+            },
+            { once: true }
+          );
+        });
+      }
+
+      function stopMusic() {
+        try {
+          if (currentMusic) {
+            currentMusic.pause();
+            // don't reset currentTime so resume is possible
+            currentMusic = null;
+          }
+        } catch (e) {}
+      }
+
+      function playLevelMusic(levelIndex) {
+        // try to play MUSIC[levelIndex], fall back to nearest available
+        if (!MUSIC || MUSIC.length === 0) return;
+        const idx = Math.min(levelIndex, MUSIC.length - 1);
+        const track = MUSIC[idx];
+        if (!track) return;
+        // stop previous
+        if (currentMusic && currentMusic !== track) {
+          // попытка плавного выключения (простая)
+          try {
+            currentMusic.pause();
+          } catch (e) {}
+        }
+        currentMusic = track;
+        currentMusic.volume = musicMuted ? 0 : musicVolume;
+        currentMusic.currentTime = 0;
+        const p = currentMusic.play();
+        if (p && typeof p.then === "function") {
+          p.catch((err) => {
+            console.warn("[playLevelMusic] play blocked", err);
+          });
+        }
+      }
+
+      // Воспроизводит случайный звук из SOUNDS[listName] с указанной громкостью (0..1)
+      function playRandomSound(listName, volume = 1.0) {
+        if (effectsMuted) return;
+        const arr = SOUNDS[listName];
+        if (!arr || arr.length === 0) return;
+        const idx = Math.floor(Math.random() * arr.length);
+        const srcAudio = arr[idx];
+        if (!srcAudio) return;
+        try {
+          const a = srcAudio.cloneNode(true);
+          a.volume = Math.max(0, Math.min(1, volume * effectsVolume));
+          const p = a.play();
+          if (p && typeof p.then === "function") {
+            p.catch((err) => {
+              console.warn("[playRandomSound] play blocked", err);
+            });
+          }
+        } catch (e) {
+          try {
+            srcAudio.volume = Math.max(0, Math.min(1, volume * effectsVolume));
+            srcAudio.play();
+          } catch (e2) {}
+        }
+      }
+
+      // удобные обёртки
+      function playGoydaSound() {
+        playRandomSound("goyda", 1.0);
+      }
+      function playAttackSound() {
+        const arr = SOUNDS["attack"];
+        if (!arr || arr.length === 0) return;
+
+        // Если есть активный звуковой объект и он ещё играет — ускорим его
+        if (
+          currentAttackAudio &&
+          !currentAttackAudio.paused &&
+          !currentAttackAudio.ended
+        ) {
+          // защитимся от NaN или неинициализированного duration
+          try {
+            // если звук почти кончается, позволим ему дойти до конца и не ускорять
+            if (
+              currentAttackAudio.duration &&
+              currentAttackAudio.currentTime <
+                currentAttackAudio.duration - 0.06
+            ) {
+              currentAttackAudio.playbackRate = Math.min(
+                attackMaxRate,
+                (currentAttackAudio.playbackRate || 1) * attackAccelStep
+              );
+              // можно также слегка поднять громкость, но осторожно:
+              // currentAttackAudio.volume = Math.min(1, currentAttackAudio.volume + 0.04);
+              return;
+            }
+          } catch (e) {
+            // fallthrough — если доступ к свойствам не разрешён (редкий кейс), начнём новый звук
+          }
+        }
+
+        // Иначе начинаем новый экземпляр звука
+        const idx = Math.floor(Math.random() * arr.length);
+        const srcAudio = arr[idx];
+        if (!srcAudio) return;
+        try {
+          const a = srcAudio.cloneNode(true);
+          a.volume = attackBaseVolume * effectsVolume * (effectsMuted ? 0 : 1);
+
+          a.playbackRate = 1.0;
+          // при завершении — очищаем ссылку
+          a.addEventListener(
+            "ended",
+            () => {
+              if (currentAttackAudio === a) currentAttackAudio = null;
+            },
+            { once: true }
+          );
+          // на всякий случай очистим при ошибке
+          a.addEventListener(
+            "error",
+            () => {
+              if (currentAttackAudio === a) currentAttackAudio = null;
+            },
+            { once: true }
+          );
+
+          currentAttackAudio = a;
+          const p = a.play();
+          if (p && typeof p.then === "function") {
+            p.catch(() => {
+              // playback заблокирован/ошибка — просто сбросим ссылку
+              if (currentAttackAudio === a) currentAttackAudio = null;
+            });
+          }
+        } catch (err) {
+          // fallback: попробовать проиграть исходный элемент (если он доступен)
+          try {
+            if (srcAudio) {
+              srcAudio.volume = attackBaseVolume;
+              srcAudio.playbackRate = 1;
+              srcAudio.play();
+            }
+          } catch (e) {}
+        }
+      }
+      function playHurtSound() {
+        playRandomSound("hurt", 0.9);
       }
 
       /* =============================
@@ -455,6 +951,55 @@
         }
         return null;
       }
+      // -----------------------------
+      // HELPERS for AI & LOS
+      // -----------------------------
+
+      // Проверяет, есть ли "линия видимости" между двумя точками (есть ли стена между ними).
+      // Возвращает true если линия *пересекает* стену.
+      function isLineBlocked(a, b) {
+        if (!mapData || !mapData.raw) return false;
+        const dx = b.x - a.x;
+        const dy = b.y - a.y;
+        const distTotal = Math.hypot(dx, dy);
+        if (distTotal < 8) return false;
+        const steps = Math.ceil(distTotal / 8); // шаг ~8px
+        for (let i = 1; i < steps; i++) {
+          const t = i / steps;
+          const ix = a.x + dx * t;
+          const iy = a.y + dy * t;
+          if (isWallAtPx(ix, iy)) return true;
+        }
+        return false;
+      }
+
+      // Выбирает случайную достижимую цель (в пикселях) для блуждания врага.
+      // Возвращает {x,y} или null.
+      function pickWanderTarget(mapData, originX, originY, maxRadiusTiles = 6) {
+        if (!mapData || !mapData.raw) return null;
+        const startMx = Math.floor(originX / TILE);
+        const startMy = Math.floor(originY / TILE);
+        const candidates = [];
+        for (let dy = -maxRadiusTiles; dy <= maxRadiusTiles; dy++) {
+          for (let dx = -maxRadiusTiles; dx <= maxRadiusTiles; dx++) {
+            const mx = startMx + dx;
+            const my = startMy + dy;
+            if (
+              my < 0 ||
+              my >= mapData.raw.length ||
+              mx < 0 ||
+              mx >= mapData.raw[0].length
+            )
+              continue;
+            if (mapData.raw[my][mx] === "." || mapData.raw[my][mx] === " ") {
+              candidates.push(mapToPx(mx, my));
+            }
+          }
+        }
+        if (candidates.length === 0) return null;
+        // случайный выбор, с небольшим шансом предпочесть ближнюю
+        return candidates[Math.floor(Math.random() * candidates.length)];
+      }
 
       /* =============================
    MAPS
@@ -477,32 +1022,32 @@
         ],
         [
           "############################",
-          "#......#.....#.....#......#",
-          "#.####.#.###.#.###.#.####.#",
-          "#.#....#...#.#...#.#....#.#",
-          "#.#.######.#.###.#.####.#.#",
-          "#.#......#.#.....#......#.#",
-          "#.######.#.#####.######.#.#",
-          "#......#.#.......#......#.#",
-          "####.#.#.#######.#.##.#.#.#",
-          "#....#...#.....#...#..#...#",
-          "#.#########.###.#####.####",
+          "#......#......##.....#....#",
+          "#.####.#.####.##.##..#..#.#",
+          "#.#.....#....#....#..#..#.#",
+          "#.#.#####.##.######.##..#.#",
+          "#.#.....#..#..........#..#",
+          "#.#####.##.##########.#..#",
+          "#.....#.....#......#..#..#",
+          "###.#.#####.#.##.#.#..#..#",
+          "#...#.....#...#..#......##",
+          "#.#########.#.#######.##.#",
           "#...........#.........#..#",
           "############################",
         ],
         [
           "############################",
-          "#..........#.............#.",
-          "#.######.#.####.######.#.#.",
-          "#.#....#.#....#.#....#.#.#.",
-          "#.#.##.#.##.##.#.##.#.#.#.#",
-          "#.#..#.#......#.#..#.#...#.",
-          "#.##.#.########.#.##.###.#.",
-          "#....#....#.....#.......#.#",
-          "###.####.#.#####.#####.#.##",
-          "#......#.#.....#.......#..#",
-          "#.####.#.#####.#######.##.#",
-          "#......#.........#.......#",
+          "#......#......##.....#....#",
+          "#.####.#.####.##.##..#..#.#",
+          "#.#.....#....#....#..#..#.#",
+          "#.#.#####.##.######.##..#.#",
+          "#.#.....#..#..........#..#",
+          "#.#####.##.##########.#..#",
+          "#.....#.....#......#..#..#",
+          "###.#.#####.#.##.#.#..#..#",
+          "#...#.....#...#..#......##",
+          "#.#########.#.#######.##.#",
+          "#...........#.........#..#",
           "############################",
         ],
       ];
@@ -529,6 +1074,23 @@
       // камера (для сдвига отрисовки; только для рендера)
       let camX = 0;
       let camY = 0;
+      let goydaTimer = 0; // сек
+      let levelReady = false; // true когда уровень полностью построен и можно проверять "уровень пройден"
+      // floating death shouts
+      const DEATH_SHOUTS = [
+        "За 1700 я бы мог тебе отсосать...",
+        "Я... сало...",
+        "СТРАНА 404...",
+        "Похрюкай..!",
+        "Подождать и на Добролюбова можно...*",
+        "Я не диван, чтобы мягко выглядеть...",
+        "Зачем я пошёл в РСО...",
+        "Все мы добрые челы, позитивные...",
+        "ЛЭЭЭ КУДА!",
+        "Киси-киси, мяу-мяу, киси-киси-мяу-мяу-мяу",
+      ];
+
+      let floatingTexts = []; // { x, y, text, life, vy, alpha, size }
 
       /* player */
       let player = {
@@ -715,6 +1277,26 @@
         return true;
       }
 
+      // Проверяет, находится ли между точками a и b преграда (стена).
+      // Возвращает true если линия между a и b пересекает стену.
+      function isLineBlocked(a, b) {
+        if (!mapData || !mapData.raw) return false;
+        const dx = b.x - a.x;
+        const dy = b.y - a.y;
+        const dist = Math.hypot(dx, dy);
+        if (dist === 0) return false;
+        // шаг проверки — чем меньше, тем точнее; ~8 пикселей даёт хороший баланс
+        const step = 8;
+        const steps = Math.ceil(dist / step);
+        for (let i = 1; i <= steps; i++) {
+          const t = i / steps;
+          const sx = a.x + dx * t;
+          const sy = a.y + dy * t;
+          if (isWallAtPx(sx, sy)) return true;
+        }
+        return false;
+      }
+
       function movePlayerBy(dx, dy) {
         if (Math.abs(dx) > 0.001 || Math.abs(dy) > 0.001) {
           player.facing = Math.atan2(dy, dx);
@@ -731,25 +1313,40 @@
           const tryY = player.y + Math.sign(dy) * 1;
           if (!isWallAtPx(player.x, tryY)) player.y = tryY;
         }
-        player.x = Math.max(10, Math.min(W - 10, player.x));
-        player.y = Math.max(10, Math.min(H - 10, player.y));
+
+        // CLAMP to map bounds (not canvas). fallback to canvas if no mapData.
+        const mapPixelW = mapData && mapData.w ? mapData.w * TILE : W;
+        const mapPixelH = mapData && mapData.h ? mapData.h * TILE : H;
+        const margin = 10;
+        player.x = Math.max(margin, Math.min(mapPixelW - margin, player.x));
+        player.y = Math.max(margin, Math.min(mapPixelH - margin, player.y));
       }
+
       function moveEnemy(en, vx, vy, dt) {
-        const nx = en.x + vx * dt,
-          ny = en.y + vy * dt;
+        // vx,vy ожидаются в px/sec
+        const nx = en.x + vx * dt;
+        const ny = en.y + vy * dt;
+
         if (!isWallAtPx(nx, en.y)) en.x = nx;
         else {
-          const nx2 = en.x + Math.sign(vx) * 1;
+          const nx2 = en.x + Math.sign(vx || 0) * 1;
           if (!isWallAtPx(nx2, en.y)) en.x = nx2;
         }
+
         if (!isWallAtPx(en.x, ny)) en.y = ny;
         else {
-          const ny2 = en.y + Math.sign(vy) * 1;
+          const ny2 = en.y + Math.sign(vy || 0) * 1;
           if (!isWallAtPx(en.x, ny2)) en.y = ny2;
         }
-        en.x = Math.max(10, Math.min(W - 10, en.x));
-        en.y = Math.max(10, Math.min(H - 10, en.y));
+
+        // CLAMP to map bounds (instead of canvas). fallback to canvas if no mapData.
+        const mapPixelW = mapData && mapData.w ? mapData.w * TILE : W;
+        const mapPixelH = mapData && mapData.h ? mapData.h * TILE : H;
+        const margin = 10;
+        en.x = Math.max(margin, Math.min(mapPixelW - margin, en.x));
+        en.y = Math.max(margin, Math.min(mapPixelH - margin, en.y));
       }
+
       function ensureEntityNotInsideWall(en, dt) {
         if (isWallAtPx(en.x, en.y)) {
           en._stuckTimer = (en._stuckTimer || 0) + dt;
@@ -796,6 +1393,36 @@
         const h = raw.length,
           w = raw[0].length;
         mapData = { raw, w, h };
+        // --- assign wall variant index per wall tile (deterministic by coords) ---
+        mapData.wallVariantIdx = new Array(h);
+        for (let yy = 0; yy < h; yy++) {
+          mapData.wallVariantIdx[yy] = new Array(w).fill(-1);
+        }
+
+        const variantCount = TEMP_WALL_KEYS.length;
+        function pickVariantIndex(mx, my, count) {
+          if (count <= 0) return -1;
+          // простой детерминированный хеш по coord, стабильный между перерисовками
+          let seed = (mx * 73856093) ^ (my * 19349663);
+          seed = seed >>> 0; // положительное целое
+          return seed % count;
+        }
+
+        for (let yy = 0; yy < h; yy++) {
+          for (let xx = 0; xx < w; xx++) {
+            if (raw[yy][xx] === "#") {
+              // выберем индекс варианта (по координатам, детерминированно)
+              mapData.wallVariantIdx[yy][xx] = pickVariantIndex(
+                xx,
+                yy,
+                variantCount
+              );
+            } else {
+              mapData.wallVariantIdx[yy][xx] = -1;
+            }
+          }
+        }
+
         outer: for (let y = 1; y < h - 1; y++) {
           for (let x = 1; x < w - 1; x++) {
             if (raw[y][x] === "." || raw[y][x] === " ") {
@@ -806,32 +1433,142 @@
             }
           }
         }
-        const enemyCount = [6, 9, 12][levelIndex] || 6;
+        // взять настройки из LEVEL_CONFIG (с запасом на случай отсутствия)
+        const cfg = LEVEL_CONFIG[levelIndex] || LEVEL_CONFIG[0];
+        const enemyCount = cfg.enemyCount || 6;
+
+        // === SPAWN ENEMIES (с контролем плотности и инициализацией ai.target) ===
+        const spawnMinDist = levelIndex >= 2 ? 220 : 140; // для 3-го уровня дальше от игрока
         for (let i = 0; i < enemyCount; i++) {
           let tries = 0;
-          while (tries < 400) {
+          while (tries < 600) {
             tries++;
             const rx = Math.floor(Math.random() * w),
               ry = Math.floor(Math.random() * h);
             if (raw[ry][rx] === "." || raw[ry][rx] === " ") {
               const pos = mapToPx(rx, ry);
-              if (Math.hypot(pos.x - player.x, pos.y - player.y) < 140)
+              if (Math.hypot(pos.x - player.x, pos.y - player.y) < spawnMinDist)
                 continue;
+              const nearby = enemies.filter(
+                (ee) => Math.hypot(ee.x - pos.x, ee.y - pos.y) < 96
+              ).length;
+              if (nearby >= 3) continue;
+              // выберем начальную цель блуждания (fallback - немного смещённая точка)
+              const initialTarget = pickWanderTarget(
+                mapData,
+                pos.x,
+                pos.y,
+                5
+              ) || {
+                x: pos.x + (Math.random() - 0.5) * 80,
+                y: pos.y + (Math.random() - 0.5) * 80,
+              };
               enemies.push({
                 x: pos.x,
                 y: pos.y,
                 r: 18 + Math.random() * 8,
-                hp: 30 + levelIndex * 18 + Math.floor(Math.random() * 30),
-                speed: 40 + levelIndex * 10 + Math.random() * 30,
-                type:
-                  levelIndex === 2 && Math.random() < 0.15 ? "boss" : "grunt",
+                hp: Math.floor(
+                  (30 + levelIndex * 18 + Math.floor(Math.random() * 30)) *
+                    (cfg.hpMult || 1)
+                ),
+                speed: Math.floor(
+                  (40 + levelIndex * 10 + Math.random() * 30) *
+                    (cfg.speedMult || 1)
+                ),
+                type: "grunt",
                 _hitCooldown: 0,
                 _stuckTimer: 0,
+                ai: {
+                  state: "wander",
+                  target: initialTarget,
+                  changeTimer: 1.0 + Math.random() * 2.0,
+                },
               });
               break;
             }
           }
         }
+
+        // === Преобразование некоторых грантов в боссов согласно правилам уровня ===
+        let bossCount = 0;
+        let bossHpMult = 1.4;
+        let bossSpeedMult = 0.9;
+
+        if (levelIndex === 0) {
+          // на первом уровне — ровно 1 слабый босс
+          bossCount = 1;
+          bossHpMult = 1.15; // слегка сильнее обычного (не жёстко)
+          bossSpeedMult = 0.9; // чуть медленнее — "босс слабее"
+        } else if (levelIndex === 1) {
+          // на втором — 1 или 2 босса
+          bossCount = Math.random() < 0.5 ? 1 : 2;
+          bossHpMult = 1.45; // сильнее, чем на первом
+          bossSpeedMult = 1.05; // могут быть чуть шустрее
+        } else {
+          // уровень 2 — оставляем поведение прежним: иногда боссы через рандом (сохраним старое поведение)
+          // но для совместимости можно оставить bossCount = 0 и полагаться на прежнюю логику (если она есть)
+          bossCount = 0;
+        }
+
+        // Если bossCount > 0 — попробуем превратить случайные враги в боссов
+        if (bossCount > 0 && enemies.length > 0) {
+          // соберём список индексов, которые можно превратить (избегаем тех, кто уже слишком близко к игроку)
+          const candidateIdx = enemies
+            .map((e, idx) => ({ e, idx }))
+            .filter((x) => Math.hypot(x.e.x - player.x, x.e.y - player.y) > 120) // не слишком близко к игроку
+            .map((x) => x.idx);
+
+          // перемешиваем кандидатов
+          for (let i = candidateIdx.length - 1; i > 0; i--) {
+            const j = Math.floor(Math.random() * (i + 1));
+            [candidateIdx[i], candidateIdx[j]] = [
+              candidateIdx[j],
+              candidateIdx[i],
+            ];
+          }
+
+          // выберем up to bossCount индексов и превратим их в боссов
+          let placed = 0;
+          for (let i = 0; i < candidateIdx.length && placed < bossCount; i++) {
+            const idx = candidateIdx[i];
+            const en = enemies[idx];
+            if (!en) continue;
+            en.type = "boss";
+            en.hp = Math.floor(en.hp * bossHpMult) + 20; // добавим запас ХП
+            en.r = Math.max(en.r, 26); // босс — крупнее
+            en.speed = Math.max(20, Math.floor(en.speed * bossSpeedMult));
+            placed++;
+          }
+
+          // если кандидатов недостаточно (очень редкий случай) — создаём боссов отдельно
+          let extraTries = 0;
+          while (placed < bossCount && extraTries < 200) {
+            extraTries++;
+            const rx = Math.floor(Math.random() * w),
+              ry = Math.floor(Math.random() * h);
+            if (raw[ry][rx] === "." || raw[ry][rx] === " ") {
+              const pos = mapToPx(rx, ry);
+              if (Math.hypot(pos.x - player.x, pos.y - player.y) < 160)
+                continue;
+              enemies.push({
+                x: pos.x,
+                y: pos.y,
+                r: 28,
+                hp: Math.floor(
+                  (60 + Math.floor(Math.random() * 40)) * (bossHpMult || 1)
+                ),
+                speed: Math.floor(
+                  (30 + Math.random() * 30) * (bossSpeedMult || 1)
+                ),
+                type: "boss",
+                _hitCooldown: 0,
+                _stuckTimer: 0,
+              });
+              placed++;
+            }
+          }
+        }
+
         for (let i = 0; i < 4; i++) items.push(randomItem(raw));
         let exit = null;
         for (let y = h - 2; y > 0; y--) {
@@ -844,6 +1581,24 @@
           if (exit) break;
         }
         mapData.exit = exit;
+
+        // Для levelIndex === 2: вернуть прежнее поведение — небольшая вероятность, что некоторые гранты станут боссами (≈18%)
+        if (levelIndex === 2) {
+          for (let i = 0; i < enemies.length; i++) {
+            if (Math.random() < 0.18) {
+              const en = enemies[i];
+              if (
+                en.type !== "boss" &&
+                Math.hypot(en.x - player.x, en.y - player.y) > 120
+              ) {
+                en.type = "boss";
+                en.hp = Math.floor(en.hp * 1.6) + 30;
+                en.r = Math.max(en.r, 28);
+                en.speed = Math.max(20, Math.floor(en.speed * 1.15));
+              }
+            }
+          }
+        }
         return mapData;
       }
 
@@ -874,6 +1629,19 @@
         if (!audioCtx)
           audioCtx = new (window.AudioContext || window.webkitAudioContext)();
       }
+      // Разрешить WebAudio/Audioplay по первому клику
+      window.addEventListener(
+        "pointerdown",
+        function resumeAudioOnce() {
+          try {
+            if (audioCtx && audioCtx.state === "suspended") audioCtx.resume();
+          } catch (e) {}
+          // также разрешим проигрывание audio elements (браузер после клика позволит)
+          window.removeEventListener("pointerdown", resumeAudioOnce);
+        },
+        { once: true }
+      );
+
       function playBeep(freq, dur = 0.06, vol = 0.06) {
         ensureAudio();
         const o = audioCtx.createOscillator(),
@@ -913,25 +1681,32 @@
    COMBAT
    ============================= */
       function performMelee() {
-        playBeep(880, 0.06, 0.06);
+        playAttackSound();
         enemies.forEach((en) => {
           const dx = en.x - player.x,
             dy = en.y - player.y;
           const ang = Math.atan2(dy, dx);
           const da = Math.abs(normalizeAngle(ang - player.facing));
-          if (
-            (da < 1.6 && dist(en, player) < player.r + 48) ||
-            dist(en, player) < player.r + 24
-          ) {
-            en.hp -= player.damage;
+          const closeEnough = dist(en, player) < player.r + 24;
+          const inFront = da < 1.6 && dist(en, player) < player.r + 48;
+          if (inFront || closeEnough) {
+            // проверим, есть ли стена между игроком и врагом
+            const blocked = isLineBlocked(player, en);
+            const dmg = Math.floor(player.damage / (blocked ? 3 : 1)); // через стену — в 3 раза меньше
+            en.hp -= dmg;
             const kb = 8;
             en.x += Math.cos(ang) * kb;
             en.y += Math.sin(ang) * kb;
           }
         });
       }
+
       function performSuper() {
         playSuper();
+        playGoydaSound();
+        goydaTimer = 0.9; // показываем 0.9 секунды в канвасе
+        // оставляем старый DOM-всплеск, но он не обязателен — можно убрать DOM элемент
+
         flashSuper = 1.0;
         const goy = document.getElementById("goydaText");
         goy.classList.add("show");
@@ -1007,18 +1782,31 @@
       <div class="choice" data-choice="mana">+30 к мане</div>
     </div>`;
         showOverlay(html);
-        document.getElementById("choiceBox").addEventListener(
-          "click",
-          (e) => {
-            const c = e.target.closest(".choice");
-            if (!c) return;
-            const val = c.dataset.choice;
-            hideOverlay();
-            onPick(val);
-          },
-          { once: true }
-        );
+
+        // Повесим обработчик асинхронно, чтобы элемент точно вставился в DOM
+        setTimeout(() => {
+          const box = document.getElementById("choiceBox");
+          if (!box) {
+            console.warn("[upgrade] choiceBox not found");
+            return;
+          }
+          box.addEventListener(
+            "click",
+            (e) => {
+              const c = e.target.closest(".choice");
+              if (!c) return;
+              const val = c.dataset.choice;
+              console.log("[upgrade] selected", val);
+
+              // сначала скроем оверлей, затем с небольшой задержкой применим выбор
+              hideOverlay();
+              setTimeout(() => onPick(val), 80);
+            },
+            { once: true }
+          );
+        }, 0);
       }
+
       function showEnemyDialog(levelIndex, onContinue) {
         const taunts = [
           "Ха! Ты думаешь, лысиною нас испугаешь?",
@@ -1045,6 +1833,15 @@
       <div class="choice" id="replay">Играть снова</div>
       <div class="choice" id="claim">Забрать подарок</div>
     </div>`;
+        // play appropriate sound and stop music
+        if (title === TEXTS.victoryTitle) {
+          stopMusic();
+          playRandomSound("victory", 1.0);
+        } else if (title === TEXTS.gameOverTitle) {
+          stopMusic();
+          playRandomSound("defeat", 1.0);
+        }
+
         showOverlay(html);
         document.getElementById("replay").addEventListener(
           "click",
@@ -1074,19 +1871,89 @@
         player.mana = BALANCE.playerMaxMana;
         player.damage = BALANCE.baseDamage;
         state = "playing";
+
+        // Загрузим базовые общие ассеты (потом startLevel загрузит level-specific)
         loadImages(ASSETS, () => {
-          startLevel(currentLevel);
+          loadSounds(SOUND_LISTS, () => {
+            loadMusic(MUSIC_LIST, () => {
+              wireAudioControls();
+              startLevel(currentLevel);
+              lastTime = performance.now();
+              requestAnimationFrame(loop);
+            });
+          });
+        });
+      }
+
+      function startLevel(idx) {
+        levelReady = false;
+        // очистим предыдущие сущности (на всякий случай)
+        enemies = [];
+        items = [];
+
+        // соберём ассеты: поверх общих ASSETS наложим level-specific
+        const levelAssets = ASSETS_LEVEL[idx] || {};
+        // начальный набор — базовые ассеты
+        const assetsToLoad = Object.assign({}, ASSETS);
+
+        // floor
+        // --- apply level-specific assets ---
+        // floor: добавляем и ключ 'floor' и 'floorFull' (рендер ждёт IMAGES.floorFull)
+        if (levelAssets.floor) {
+          assetsToLoad.floor = levelAssets.floor;
+          assetsToLoad.floorFull = levelAssets.floor; // чтобы render() нашёл IMAGES.floorFull
+        } else {
+          delete assetsToLoad.floor;
+          delete assetsToLoad.floorFull;
+        }
+
+        // wallVariants -> разворачиваем в ключи wallVar0, wallVar1...
+        TEMP_WALL_KEYS = [];
+        if (
+          Array.isArray(levelAssets.wallVariants) &&
+          levelAssets.wallVariants.length > 0
+        ) {
+          levelAssets.wallVariants.forEach((src, i) => {
+            const key = "wallVar" + i;
+            assetsToLoad[key] = src;
+            TEMP_WALL_KEYS.push(key);
+          });
+        } else {
+          TEMP_WALL_KEYS = [];
+        }
+
+        // Подхватим любые другие level-specific ключи (player/enemy/boss с любыми суффиксами),
+        // чтобы в IMAGES появились ключи типа "enemy_lvl2", "boss_lvl2", "player_lvl3" и т.п.
+        for (const k in levelAssets) {
+          if (!Object.prototype.hasOwnProperty.call(levelAssets, k)) continue;
+          if (k === "floor" || k === "wallVariants") continue;
+          // просто копируем путь под тем же ключом — render/LEVEL_CONFIG использует эти имена
+          assetsToLoad[k] = levelAssets[k];
+        }
+
+        // загрузим (перезапишет IMAGES нужными картинками)
+        loadImages(assetsToLoad, () => {
+          // после загрузки — строим уровень
+          buildLevel(idx);
+
+          setTimeout(() => {
+            levelReady = true;
+          }, 80);
+          // сброс боёв и визуалов
+          attackCooldown = 0;
+          superCooldown = 0;
+          flashSuper = 0;
+          // не объявляем exitPulse здесь — она глобальная
+          state = "playing";
+
+          // если хотим — можно сразу назначить player image из config (опционально)
+          // const cfg = LEVEL_CONFIG[idx] || LEVEL_CONFIG[0];
+          // if (IMAGES[cfg.playerImage]) { /* используем IMAGES[cfg.playerImage] в render вместо IMAGES.player */ }
+          playLevelMusic(idx);
+          // безопасно продолжим цикл
           lastTime = performance.now();
           requestAnimationFrame(loop);
         });
-      }
-      function startLevel(idx) {
-        buildLevel(idx);
-        attackCooldown = 0;
-        superCooldown = 0;
-        flashSuper = 0;
-        let exitPulse = 0; // для пульсации маркера выхода
-        state = "playing";
       }
 
       /* =============================
@@ -1113,10 +1980,10 @@
       function update(dt) {
         let mx = 0,
           my = 0;
-        if (keys["arrowup"] || keys["w"]) my -= 1;
-        if (keys["arrowdown"] || keys["s"]) my += 1;
-        if (keys["arrowleft"] || keys["a"]) mx -= 1;
-        if (keys["arrowright"] || keys["d"]) mx += 1;
+        if (keys["arrowup"] || keys["w"] || keys["ц"]) my -= 1;
+        if (keys["arrowdown"] || keys["s"] || keys["ы"]) my += 1;
+        if (keys["arrowleft"] || keys["a"] || keys["ф"]) mx -= 1;
+        if (keys["arrowright"] || keys["d"] || keys["в"]) mx += 1;
         const len = Math.hypot(mx, my) || 1;
         movePlayerBy(
           (mx / len) * player.speed * dt,
@@ -1130,7 +1997,7 @@
         if (attackCooldown > 0) attackCooldown -= dt;
 
         if (
-          (keys["e"] || keys["ё"]) &&
+          (keys["e"] || keys["у"]) &&
           superCooldown <= 0 &&
           player.mana >= BALANCE.superCost
         ) {
@@ -1141,26 +2008,129 @@
         if (superCooldown > 0) superCooldown -= dt;
 
         player.mana = Math.min(BALANCE.playerMaxMana, player.mana + 8 * dt);
+        if (goydaTimer > 0) goydaTimer = Math.max(0, goydaTimer - dt);
 
         enemies.forEach((en) => {
-          const dx = player.x - en.x,
-            dy = player.y - en.y;
-          const d = Math.hypot(dx, dy) || 1;
-          const vx = (dx / d) * en.speed,
-            vy = (dy / d) * en.speed;
+          // ensure ai object
+          if (!en.ai)
+            en.ai = {
+              state: "wander",
+              target: null,
+              changeTimer: Math.random() * 2 + 1,
+            };
+
+          const dxP = player.x - en.x;
+          const dyP = player.y - en.y;
+          const dToPlayer = Math.hypot(dxP, dyP) || 1;
+
+          const chaseRadius = 180 + currentLevel * 20;
+          const loseInterestRadius = chaseRadius * 1.15;
+
+          // state transitions
+          if (
+            en.ai.state !== "chase" &&
+            dToPlayer < chaseRadius &&
+            !isLineBlocked(en, player)
+          ) {
+            en.ai.state = "chase";
+          } else if (
+            en.ai.state === "chase" &&
+            dToPlayer > loseInterestRadius
+          ) {
+            en.ai.state = "wander";
+            en.ai.target = null;
+            en.ai.changeTimer = 0.6 + Math.random() * 1.4;
+          }
+
+          let vx = 0,
+            vy = 0;
+
+          if (en.ai.state === "chase") {
+            // chase player with slight jitter
+            en._jit = en._jit || Math.random() * 10;
+            const jitterAngle =
+              Math.sin((performance.now() / 1000) * 2 + en._jit) * 0.18;
+            const ang = Math.atan2(dyP, dxP) + jitterAngle;
+            vx = Math.cos(ang) * en.speed;
+            vy = Math.sin(ang) * en.speed;
+          } else {
+            // wander
+            en.ai.changeTimer -= dt;
+            if (!en.ai.target || en.ai.changeTimer <= 0) {
+              en.ai.target = pickWanderTarget(mapData, en.x, en.y, 5) || {
+                x: en.x + (Math.random() - 0.5) * 80,
+                y: en.y + (Math.random() - 0.5) * 80,
+              };
+              en.ai.changeTimer = 1.0 + Math.random() * 2.0;
+            }
+            const tx = en.ai.target.x,
+              ty = en.ai.target.y;
+            const ddx = tx - en.x,
+              ddy = ty - en.y;
+            const dd = Math.hypot(ddx, ddy) || 1;
+            if (dd < 8) {
+              en.ai.changeTimer = 0.05; // пометить смену цели на следующем шаге
+            } else {
+              vx = (ddx / dd) * en.speed * 0.85; // wander чуть медленнее
+              vy = (ddy / dd) * en.speed * 0.85;
+            }
+          }
+          // временный лог (после вставки и для отладки)
+
+          // apply movement (vx,vy in px/sec; dt in sec)
           moveEnemy(en, vx, vy, dt);
+          // if (DEBUG_VERBOSE && Math.random() < 0.02) {
+          //   console.debug(
+          //     "EN",
+          //     en.type,
+          //     "ai",
+          //     en.ai && en.ai.state,
+          //     "pos",
+          //     Math.round(en.x),
+          //     Math.round(en.y),
+          //     "vx",
+          //     vx.toFixed(1),
+          //     "vy",
+          //     vy.toFixed(1)
+          //   );
+          // }
           ensureEntityNotInsideWall(en, dt);
+
+          // collision with player
           const minD = en.r + player.r - 6;
           if (dist(en, player) < minD) {
             if (!en._hitCooldown || en._hitCooldown <= 0) {
               player.hp -= 8 + (en.type === "boss" ? 10 : 0);
               en._hitCooldown = 0.8;
-              playBeep(220, 0.06, 0.06);
+              playHurtSound();
             }
           }
+
           if (en._hitCooldown > 0) en._hitCooldown -= dt;
-          if (en.hp <= 0) en._dead = true;
+
+          if (en.hp <= 0) {
+            if (!en._dead) en._dead = true;
+            if (!en._counted) {
+              score += en.type === "boss" ? 25 : 10;
+              en._counted = true;
+              try {
+                playBeep(1200, 0.04, 0.05);
+              } catch (e) {}
+              const shout =
+                DEATH_SHOUTS[Math.floor(Math.random() * DEATH_SHOUTS.length)];
+              floatingTexts.push({
+                x: en.x,
+                y: en.y - (en.r || 18) - 6,
+                text: shout,
+                life: 1.2,
+                vy: -36 - Math.random() * 16,
+                alpha: 1,
+                size: 18 + Math.floor(Math.random() * 6),
+              });
+            }
+          }
         });
+
         enemies = enemies.filter((e) => !e._dead);
 
         for (let i = items.length - 1; i >= 0; i--) {
@@ -1178,12 +2148,14 @@
               );
             }
             items.splice(i, 1);
-            playBeep(720, 0.06, 0.06);
+            const pickupKey =
+              it.type === "heart" ? "pickup_heart" : "pickup_mana";
+            playRandomSound(pickupKey, 0.9);
           }
         }
         exitPulse += dt * 3.0; // регулируй скорость пульсации (3.0 — приятный темп)
 
-        if (enemies.length === 0 && state === "playing") {
+        if (enemies.length === 0 && state === "playing" && levelReady) {
           console.log(
             "[LEVEL CLEAR] enemies === 0, setting state -> gotoExit; mapData.exit=",
             !!(mapData && mapData.exit)
@@ -1224,13 +2196,12 @@
             state = "pending";
             showEnemyDialog(currentLevel, () => {
               showUpgradeOptions((choice) => {
+                console.log("[upgrade] applying", choice);
                 if (choice === "hp") {
                   BALANCE.playerMaxHP += 20;
                   player.hp = Math.min(BALANCE.playerMaxHP, player.hp + 20);
                 }
-                if (choice === "dmg") {
-                  player.damage += 6;
-                }
+                if (choice === "dmg") player.damage += 6;
                 if (choice === "mana") {
                   BALANCE.playerMaxMana += 30;
                   player.mana = Math.min(
@@ -1238,14 +2209,34 @@
                     player.mana + 30
                   );
                 }
+
+                // безопасно увеличиваем уровень и запускаем следующий уровень чуть позже
                 currentLevel++;
-                if (currentLevel >= MAPS.length) {
-                  state = "victory";
-                  showEnd(TEXTS.victoryTitle, TEXTS.victoryText);
-                } else startLevel(currentLevel);
+                console.log("[upgrade] currentLevel now", currentLevel);
+
+                setTimeout(() => {
+                  if (currentLevel >= MAPS.length) {
+                    state = "victory";
+                    showEnd(TEXTS.victoryTitle, TEXTS.victoryText);
+                  } else {
+                    // пометим, что идёт загрузка/стартер (опционально)
+                    state = "loading";
+                    startLevel(currentLevel);
+                  }
+                }, 120);
               });
             });
           }
+        }
+        // --- update floating death texts ---
+        for (let i = floatingTexts.length - 1; i >= 0; i--) {
+          const ft = floatingTexts[i];
+          ft.y += ft.vy * dt; // поднимается
+          ft.life -= dt;
+          ft.alpha = Math.max(0, ft.life / 1.2);
+          // лёгкое смещение в стороны для органичности
+          // ft.x += Math.sin((1 - ft.life) * 10) * 6 * dt;
+          if (ft.life <= 0) floatingTexts.splice(i, 1);
         }
 
         if (player.hp <= 0 && state !== "gameover") {
@@ -1277,8 +2268,23 @@
         }
         ctx.save();
         ctx.translate(-camX, -camY);
+        // --- Если есть полноразмерный пол — нарисуем его одним блоком (screen/world привязка через камеру) ---
+        if (mapData && IMAGES.floorFull) {
+          // mapData.w * TILE, mapData.h * TILE — размер карты в пикселях
+          ctx.drawImage(
+            IMAGES.floorFull,
+            0,
+            0,
+            mapData.w * TILE,
+            mapData.h * TILE
+          );
+        }
+
         if (mapData && mapData.raw) {
           // shift drawing by camera
+          function VIDX_OK(v) {
+            return typeof v === "number" && v >= 0 && v < TEMP_WALL_KEYS.length;
+          }
 
           for (let y = 0; y < mapData.raw.length; y++) {
             for (let x = 0; x < mapData.raw[y].length; x++) {
@@ -1286,15 +2292,33 @@
               const px = x * TILE,
                 py = y * TILE;
               if (ch === "#") {
-                ctx.fillStyle = "#071721";
-                ctx.fillRect(px, py, TILE, TILE);
-                ctx.fillStyle = "#082a2f";
-                ctx.fillRect(px + 6, py + 6, TILE - 12, TILE - 12);
+                // если есть заранее назначенный вариант — используем картинку wallVarN
+                let drawn = false;
+                if (mapData && mapData.wallVariantIdx) {
+                  const idx = mapData.wallVariantIdx[y][x];
+                  if (typeof idx === "number") {
+                    const key = `wallVar${idx}`;
+                    if (IMAGES[key]) {
+                      ctx.drawImage(IMAGES[key], px, py, TILE, TILE);
+                      drawn = true;
+                    }
+                  }
+                }
+                if (!drawn) {
+                  // fallback: рисуем прежний стиль квадратиков
+                  ctx.fillStyle = "#071721";
+                  ctx.fillRect(px, py, TILE, TILE);
+                  ctx.fillStyle = "#082a2f";
+                  ctx.fillRect(px + 6, py + 6, TILE - 12, TILE - 12);
+                }
               } else {
-                ctx.fillStyle = "#071421";
-                ctx.fillRect(px, py, TILE, TILE);
-                ctx.fillStyle = "rgba(255,255,255,0.01)";
-                ctx.fillRect(px, py + TILE - 3, TILE, 1);
+                // пол (если нет floorFull, рисуем тайл пола)
+                if (!IMAGES.floorFull) {
+                  ctx.fillStyle = "#071421";
+                  ctx.fillRect(px, py, TILE, TILE);
+                  ctx.fillStyle = "rgba(255,255,255,0.01)";
+                  ctx.fillRect(px, py + TILE - 3, TILE, 1);
+                }
               }
             }
           }
@@ -1351,19 +2375,27 @@
             }
           }
         });
-
+        const cfg = LEVEL_CONFIG[currentLevel] || LEVEL_CONFIG[0];
+        const gruntKey = cfg.enemyImage || "enemy1";
+        const bossKey = cfg.bossImage || "boss";
+        const playerKey = cfg.playerImage || "player";
         enemies.forEach((en) => {
-          if (IMAGES.enemy1 && en.type === "grunt")
-            ctx.drawImage(IMAGES.enemy1, en.x - 24, en.y - 24, 48, 48);
-          else if (IMAGES.boss && en.type === "boss")
-            ctx.drawImage(IMAGES.boss, en.x - 36, en.y - 36, 72, 72);
-          else {
-            ctx.beginPath();
-            ctx.fillStyle = en.type === "boss" ? "#ff8b6b" : "#ff6b6b";
-            ctx.arc(en.x, en.y, en.r, 0, Math.PI * 2);
-            ctx.fill();
-            ctx.fillStyle = "#581515";
-            ctx.fillRect(en.x - 6, en.y - 6, 12, 6);
+          if (en.type === "grunt") {
+            if (IMAGES[gruntKey])
+              ctx.drawImage(IMAGES[gruntKey], en.x - 24, en.y - 24, 48, 48);
+            else if (IMAGES.enemy1)
+              ctx.drawImage(IMAGES.enemy1, en.x - 24, en.y - 24, 48, 48);
+            else {
+              /* fallback drawing */
+            }
+          } else {
+            if (IMAGES[bossKey])
+              ctx.drawImage(IMAGES[bossKey], en.x - 36, en.y - 36, 72, 72);
+            else if (IMAGES.boss)
+              ctx.drawImage(IMAGES.boss, en.x - 36, en.y - 36, 72, 72);
+            else {
+              /* fallback */
+            }
           }
           ctx.fillStyle = "rgba(0,0,0,0.5)";
           ctx.fillRect(en.x - 20, en.y - en.r - 12, 40, 6);
@@ -1373,19 +2405,48 @@
           ctx.fillRect(en.x - 20, en.y - en.r - 12, Math.max(0, w), 6);
         });
 
-        if (IMAGES.player)
+        if (IMAGES[playerKey])
+          ctx.drawImage(
+            IMAGES[playerKey],
+            player.x - 28,
+            player.y - 28,
+            56,
+            56
+          );
+        else if (IMAGES.player)
           ctx.drawImage(IMAGES.player, player.x - 28, player.y - 28, 56, 56);
-        else {
-          ctx.beginPath();
-          ctx.fillStyle = "#ffd7a8";
-          ctx.arc(player.x, player.y, player.r, 0, Math.PI * 2);
-          ctx.fill();
-          ctx.beginPath();
-          ctx.fillStyle = "rgba(255,255,255,0.26)";
-          ctx.ellipse(player.x - 8, player.y - 10, 12, 7, -0.6, 0, Math.PI * 2);
-          ctx.fill();
-          ctx.fillStyle = "#d99b4b";
-          ctx.fillRect(player.x + 6, player.y + 8, 12, 6);
+
+        floatingTexts.forEach((ft) => {
+          ctx.save();
+          ctx.globalAlpha = Math.min(1, ft.alpha);
+          ctx.textAlign = "center";
+          ctx.font = `${ft.size}px Inter, sans-serif`;
+          // тонкая тень/обводка для читаемости
+          ctx.lineWidth = 4;
+          ctx.strokeStyle = "rgba(0,0,0,0.55)";
+          ctx.fillStyle = "#ffd76b"; // цвет чуть похоже на GOYDA, но можно изменить
+          ctx.strokeText(ft.text, ft.x, ft.y);
+          ctx.fillText(ft.text, ft.x, ft.y);
+          ctx.restore();
+        });
+
+        if (goydaTimer > 0) {
+          ctx.save();
+
+          const t = goydaTimer; // 0..0.9
+          const alpha = Math.min(1, t * 1.6);
+          const scale = 1 + 0.18 * (1 - t); // небольшой всплеск
+          ctx.translate(player.x, player.y - 60);
+          ctx.scale(scale, scale);
+          ctx.globalAlpha = alpha;
+          ctx.textAlign = "center";
+          ctx.font = "46px Inter, sans-serif";
+          ctx.fillStyle = "#ffd76b";
+          ctx.lineWidth = 6;
+          ctx.strokeStyle = "rgba(0,0,0,0.6)";
+          ctx.strokeText("ГООООЙДА", 0, 0);
+          ctx.fillText("ГООООЙДА", 0, 0);
+          ctx.restore();
         }
 
         if (flashSuper > 0) {
@@ -1417,13 +2478,8 @@
           12,
           36
         );
-        // restore canvas transform so HUD (screen-space) is not shifted
         ctx.restore();
       }
-
-      /* =============================
-   HUD UPDATE and initial
-   ============================= */
       function updateHUD() {
         const hpPerc = (Math.max(0, player.hp) / BALANCE.playerMaxHP) * 100;
         const manaPerc =
