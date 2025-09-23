@@ -1,9 +1,11 @@
 <!DOCTYPE html>
 <html lang="ru">
   <head>
+    <link rel="icon" href="assets/favicon.png" type="image/png" />
+
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width,initial-scale=1" />
-    <title>Stepan's Trial — подарок (исправлено v3)</title>
+    <title>Степа с др</title>
     <style>
       :root {
         --bg: #071427;
@@ -258,6 +260,29 @@
         font-size: 13px;
         text-align: center;
       }
+      /* game window wrapper — располагаем canvas и overlay вместе */
+      #gameWindow {
+        position: relative;
+        display: inline-block; /* чтобы ширина/высота определялись по canvas */
+      }
+
+      /* override для оверлея, когда он внутри #gameWindow:
+   покрывает только canvas (inherit ширину/высоту от gameWindow) */
+      #gameWindow .overlay {
+        position: absolute;
+        inset: 0;
+        display: none; /* видимость управляется JS (style.display) */
+        align-items: center;
+        justify-content: center;
+        z-index: 90; /* чуть выше canvas, но не над всей страницей */
+        pointer-events: auto; /* позволяет кликать по кнопкам внутри оверлея */
+      }
+
+      /* если хочешь быстро показывать оверлей — используем класс .show (JS уже использует display:flex/none) */
+      #gameWindow .overlay.show {
+        display: flex;
+      }
+
       @media (max-width: 980px) {
         .wrap {
           padding: 12px;
@@ -300,7 +325,15 @@
       </div>
 
       <div id="gameWrap">
-        <canvas id="game" width="800" height="520"></canvas>
+        <!-- game window: canvas + overlay внутри -->
+        <div id="gameWindow" style="display: inline-block; position: relative">
+          <canvas id="game" width="800" height="520"></canvas>
+
+          <!-- Оверлей теперь внутри gameWindow — будет покрывать только canvas.
+       Стили ниже включают показ/скрытие через класс .show или через style.display -->
+          <div id="overlayRoot" class="overlay" style="display: none"></div>
+        </div>
+
         <div id="sidebar">
           <div class="hud card">
             <div style="font-weight: 700">Степан — герой</div>
@@ -452,7 +485,6 @@
       <img id="eggImg" src="assets/egg_full.png" alt="egg" />
     </div>
 
-    <div id="overlayRoot" class="overlay" style="display: none"></div>
     <div id="goydaText" class="goyda">ГООООЙДА</div>
 
     <script>
@@ -2208,8 +2240,7 @@
           },
           {
             name: "Блэк Фэйс | Враг в отражении ",
-            taunt:
-              "ГОЙДА побеждает всё. Теперь мне это ясно..",
+            taunt: "ГОЙДА побеждает всё. Теперь мне это ясно..",
           },
         ];
 
